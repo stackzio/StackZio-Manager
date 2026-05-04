@@ -1,0 +1,5 @@
+{
+  "extends": "@stackzio/tsconfig/node.json",
+  "include": ["src", "prisma"],
+  "exclude": ["dist", "node_modules"]
+}
