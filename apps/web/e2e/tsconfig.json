@@ -1,0 +1,13 @@
+{
+  "extends": "@stackzio/tsconfig/node.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["node"],
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

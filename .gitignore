@@ -35,6 +35,8 @@ coverage/
 playwright-report/
 test-results/
 .playwright/
+apps/web/playwright-report/
+apps/web/test-results/
 
 # Prisma
 *.db

@@ -18,7 +18,9 @@
     "db:migrate": "pnpm --filter @stackzio/db migrate",
     "db:push": "pnpm --filter @stackzio/db push",
     "db:studio": "pnpm --filter @stackzio/db studio",
-    "db:seed": "pnpm --filter @stackzio/db seed"
+    "db:seed": "pnpm --filter @stackzio/db seed",
+    "e2e": "pnpm --filter @stackzio/web e2e",
+    "e2e:install": "pnpm --filter @stackzio/web e2e:install"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
