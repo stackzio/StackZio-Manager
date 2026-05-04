@@ -1,106 +1,150 @@
 import type { Metadata } from "next";
-import { CalendarClock, FolderKanban, IndianRupee, Users, Wallet } from "lucide-react";
-import { prisma } from "@stackzio/db";
+import Link from "next/link";
+import { CalendarClock, FolderKanban, IndianRupee, TrendingUp, Users, Wallet } from "lucide-react";
 import { formatMoney } from "@stackzio/lib/money";
 import { requireOrg } from "@/server/auth/guards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { getDashboardData } from "@/server/dashboard/queries";
+import { listUpcomingMeetings } from "@/server/meetings/queries";
+import { RevenueChart } from "./_components/revenue-chart";
+import { StatusDonut, StatusLegend } from "./_components/status-donut";
+import { ActivityFeed } from "./_components/activity-feed";
+import { UpcomingMeetings } from "./_components/upcoming-meetings";
+import { FadeIn } from "@/components/motion/fade-in";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const { org, user } = await requireOrg();
+  const [data, upcoming] = await Promise.all([getDashboardData(), listUpcomingMeetings(7)]);
 
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const [activeProjects, clientCount, paymentsThisMonth, outstandingAgg] = await Promise.all([
-    prisma.project.count({
-      where: { organizationId: org.id, status: { in: ["LEAD", "IN_PROGRESS", "ON_HOLD"] } },
-    }),
-    prisma.client.count({ where: { organizationId: org.id } }),
-    prisma.payment.aggregate({
-      where: { organizationId: org.id, paidAt: { gte: startOfMonth } },
-      _sum: { amount: true },
-    }),
-    prisma.$queryRaw<{ outstanding: number }[]>`
-      SELECT COALESCE(SUM(p."priceTotal" - COALESCE(paid.total, 0)), 0)::float AS outstanding
-      FROM "Project" p
-      LEFT JOIN (
-        SELECT "projectId", SUM(amount) AS total
-        FROM "Payment"
-        GROUP BY "projectId"
-      ) paid ON paid."projectId" = p.id
-      WHERE p."organizationId" = ${org.id}
-        AND p.status NOT IN ('COMPLETED', 'CANCELLED')
-    `,
-  ]);
-
-  const revenueMonth = Number(paymentsThisMonth._sum.amount ?? 0);
-  const outstanding = outstandingAgg[0]?.outstanding ?? 0;
+  const cur = data.currency as never;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1">
+      <FadeIn>
         <p className="text-sm text-muted-foreground">
           Welcome back, {user.name?.split(" ")[0] ?? "friend"}
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">{org.name} dashboard</h1>
-      </div>
+      </FadeIn>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           icon={<IndianRupee className="size-4" />}
           label="Revenue this month"
-          value={formatMoney(revenueMonth, org.defaultCurrency as never)}
+          value={formatMoney(data.revenueMonth, cur)}
           accent="primary"
         />
         <Stat
           icon={<Wallet className="size-4" />}
           label="Outstanding"
-          value={formatMoney(outstanding, org.defaultCurrency as never)}
+          value={formatMoney(data.outstanding, cur)}
           accent="warning"
         />
         <Stat
           icon={<FolderKanban className="size-4" />}
           label="Active projects"
-          value={String(activeProjects)}
+          value={String(data.activeProjects)}
           accent="success"
         />
         <Stat
           icon={<Users className="size-4" />}
           label="Clients"
-          value={String(clientCount)}
+          value={String(data.clientCount)}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Revenue</CardTitle>
-            <CardDescription>Charts and trends arrive in Phase 3 — data is live now.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="size-4 text-primary" /> Revenue · last 6 months
+            </CardTitle>
+            <CardDescription>Total payments received per month.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              Charts coming next.
-            </div>
+            <RevenueChart data={data.monthlyRevenue} currency={data.currency} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarClock className="size-4" /> Upcoming meetings
-            </CardTitle>
-            <CardDescription>Next 7 days</CardDescription>
+            <CardTitle>Project mix</CardTitle>
+            <CardDescription>Distribution by status.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              No meetings yet.
-            </div>
+          <CardContent className="space-y-3">
+            <StatusDonut data={data.statusBreakdown} />
+            <StatusLegend data={data.statusBreakdown} />
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Top outstanding</CardTitle>
+              <CardDescription>Where the money is.</CardDescription>
+            </div>
+            <Link href="/projects" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {data.topOutstanding.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing outstanding. Treat yourself.</p>
+            ) : (
+              <ul className="space-y-3">
+                {data.topOutstanding.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={`/projects/${p.id}`}
+                      className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/30"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{p.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{p.clientName ?? "—"}</p>
+                        <Progress value={p.progressPct} className="mt-2" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold tabular-nums text-warning">
+                          {formatMoney(Number(p.outstanding), p.currency as never)}
+                        </p>
+                        <Badge variant="secondary" className="text-[10px]">{p.progressPct}%</Badge>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="size-4 text-primary" /> Upcoming
+            </CardTitle>
+            <Link href="/meetings" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <UpcomingMeetings meetings={upcoming} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent activity</CardTitle>
+          <CardDescription>Everything that happened across this organization.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActivityFeed items={data.recentActivity} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -132,11 +176,6 @@ function Stat({
           <p className="truncate text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
           <p className="mt-0.5 truncate text-xl font-semibold tabular-nums">{value}</p>
         </div>
-        {accent ? (
-          <Badge variant={accent === "warning" ? "warning" : accent === "success" ? "success" : "default"} className="ml-auto">
-            live
-          </Badge>
-        ) : null}
       </CardContent>
     </Card>
   );

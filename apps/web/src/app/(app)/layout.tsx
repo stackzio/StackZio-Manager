@@ -4,6 +4,7 @@ import { getActiveOrg } from "@/server/auth/guards";
 import { listMyOrganizations } from "@/server/organization/actions";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
+import { CommandPalette } from "@/components/app-shell/command-palette";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
+      <CommandPalette isAdmin={active.role === "OWNER" || active.role === "ADMIN"} />
     </div>
   );
 }
