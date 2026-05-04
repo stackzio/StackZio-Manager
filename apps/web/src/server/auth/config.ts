@@ -5,7 +5,7 @@ import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
-import { env, hasGoogleAuth } from "@/lib/env";
+import { env, hasGoogleAuth, isSuperadminEmail } from "@/lib/env";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -57,11 +57,32 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.id = user.id;
       }
+      // Auto-promote configured superadmins (idempotent — only flips DB when needed).
+      if (token.email && isSuperadminEmail(token.email as string)) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: (token.email as string).toLowerCase() },
+          select: { id: true, isSuperAdmin: true },
+        });
+        if (dbUser && !dbUser.isSuperAdmin) {
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: { isSuperAdmin: true },
+          });
+        }
+        token.isSuperAdmin = true;
+      } else if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { isSuperAdmin: true },
+        });
+        token.isSuperAdmin = dbUser?.isSuperAdmin ?? false;
+      }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        session.user.isSuperAdmin = Boolean(token.isSuperAdmin);
       }
       return session;
     },

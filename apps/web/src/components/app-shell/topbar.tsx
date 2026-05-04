@@ -12,9 +12,10 @@ import {
   Plus,
   Search,
   Settings as SettingsIcon,
+  Shield,
   User as UserIcon,
 } from "lucide-react";
-import type { OrgRole } from "@stackzio/db";
+import type { NotificationKind, OrgRole } from "@stackzio/db";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/app-shell/notification-bell";
 import { switchOrganizationAction } from "@/server/organization/actions";
 import { cn } from "@/lib/cn";
 
@@ -34,6 +36,7 @@ interface TopbarUser {
   name: string | null;
   email: string;
   image: string | null;
+  isSuperAdmin?: boolean;
 }
 
 interface OrgItem {
@@ -44,14 +47,26 @@ interface OrgItem {
   role: OrgRole;
 }
 
+interface NotificationItem {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+}
+
 export function Topbar({
   user,
   activeOrg,
   organizations,
+  notifications,
 }: {
   user: TopbarUser;
   activeOrg: OrgItem;
   organizations: OrgItem[];
+  notifications: { unread: number; items: NotificationItem[] };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -139,7 +154,8 @@ export function Topbar({
         </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1">
+        <NotificationBell initialUnread={notifications.unread} initialItems={notifications.items} />
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -166,6 +182,17 @@ export function Topbar({
                 <SettingsIcon /> Settings
               </Link>
             </DropdownMenuItem>
+            {user.isSuperAdmin ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Super admin</DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="flex items-center gap-2">
+                    <Shield /> Admin dashboard
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => signOut({ callbackUrl: "/login" })}

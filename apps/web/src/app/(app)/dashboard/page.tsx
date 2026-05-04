@@ -8,8 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getDashboardData } from "@/server/dashboard/queries";
 import { listUpcomingMeetings } from "@/server/meetings/queries";
-import { RevenueChart } from "./_components/revenue-chart";
-import { StatusDonut, StatusLegend } from "./_components/status-donut";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/loading-skeleton";
+
+const RevenueChart = dynamic(() => import("./_components/revenue-chart").then((m) => m.RevenueChart), {
+  loading: () => <Skeleton className="h-56 w-full rounded-lg" />,
+});
+const StatusDonut = dynamic(() => import("./_components/status-donut").then((m) => m.StatusDonut), {
+  loading: () => <Skeleton className="h-48 w-full rounded-lg" />,
+});
+const StatusLegend = dynamic(() => import("./_components/status-donut").then((m) => m.StatusLegend), {
+  loading: () => <Skeleton className="h-20 w-full rounded-lg" />,
+});
 import { ActivityFeed } from "./_components/activity-feed";
 import { UpcomingMeetings } from "./_components/upcoming-meetings";
 import { FadeIn } from "@/components/motion/fade-in";

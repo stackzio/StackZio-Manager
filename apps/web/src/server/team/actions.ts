@@ -9,6 +9,7 @@ import { prisma, type OrgRole } from "@stackzio/db";
 import { env, hasEmail } from "@/lib/env";
 import { requireAdminAction, requireOrgAction, requireOwnerAction, requireUserAction } from "@/server/auth/guards";
 import { logActivity } from "@/server/activity/log";
+import { emitNotification } from "@/server/notifications/actions";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -269,6 +270,30 @@ export async function acceptInviteAction(token: string) {
       },
     }),
   ]);
+
+  // Notify all existing org admins that someone joined.
+  const admins = await prisma.organizationMember.findMany({
+    where: {
+      organizationId: invite.organizationId,
+      role: { in: ["OWNER", "ADMIN"] },
+      userId: { not: user.id },
+    },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await emitNotification({
+      userId: a.userId,
+      organizationId: invite.organizationId,
+      kind: "MEMBER_JOINED",
+      title: "New teammate",
+      body: `${user.name ?? user.email} joined ${invite.organization.name}`,
+      link: "/team",
+      refEntity: "team",
+      refId: user.id,
+      dedupeKey: `member_joined:${user.id}:${invite.organizationId}`,
+    });
+  }
+
   revalidatePath("/", "layout");
   return { ok: true as const, organizationId: invite.organizationId };
 }

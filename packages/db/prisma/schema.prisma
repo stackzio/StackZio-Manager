@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // =============================================================
@@ -22,6 +23,7 @@ model User {
   name          String?
   image         String?
   passwordHash  String?
+  isSuperAdmin  Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -38,6 +40,7 @@ model User {
   activityLogs    ActivityLog[]         @relation("ActivityActor")
   clientsCreated  Client[]              @relation("ClientCreator")
   orgsCreated     Organization[]        @relation("OrgCreator")
+  notifications   Notification[]
 }
 
 model Account {
@@ -114,8 +117,9 @@ model Organization {
   projects     Project[]
   payments     Payment[]
   tasks        Task[]
-  meetings     Meeting[]
-  activityLogs ActivityLog[]
+  meetings      Meeting[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
 
   @@index([createdById])
 }
@@ -441,4 +445,43 @@ model ActivityLog {
 
   @@index([organizationId, createdAt])
   @@index([entity, entityId])
+}
+
+// =============================================================
+// Notifications
+// =============================================================
+
+enum NotificationKind {
+  MEETING_TOMORROW
+  MEETING_SOON
+  MEETING_STARTED
+  PROJECT_DEADLINE_NEAR
+  PROJECT_OVERDUE
+  PAYMENT_RECORDED
+  MEMBER_JOINED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  GENERIC
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String?
+  kind           NotificationKind
+  title          String
+  body           String?
+  link           String?
+  refEntity      String?
+  refId          String?
+  dedupeKey      String
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+  @@index([organizationId])
 }

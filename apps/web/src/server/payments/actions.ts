@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@stackzio/db";
 import { requireAdminAction } from "@/server/auth/guards";
 import { logActivity } from "@/server/activity/log";
+import { emitNotification } from "@/server/notifications/actions";
 import { upsertPaymentSchema, type UpsertPaymentInput } from "./schemas";
 
 export type PaymentResult = { ok: true; paymentId: string } | { ok: false; error: string };
@@ -16,7 +17,12 @@ export async function createPaymentAction(projectId: string, input: UpsertPaymen
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, organizationId: ctx.org.id },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      ownerId: true,
+      members: { select: { userId: true } },
+    },
   });
   if (!project) return { ok: false, error: "Project not found" };
 
@@ -40,6 +46,24 @@ export async function createPaymentAction(projectId: string, input: UpsertPaymen
     action: "created",
     metadata: { projectId, amount: data.amount, kind: data.kind },
   });
+
+  // Notify the project owner + members (excluding the actor) so they see it in the bell.
+  const recipients = new Set<string>([project.ownerId, ...project.members.map((m) => m.userId)]);
+  recipients.delete(ctx.user.id);
+  for (const userId of recipients) {
+    await emitNotification({
+      userId,
+      organizationId: ctx.org.id,
+      kind: "PAYMENT_RECORDED",
+      title: "Payment recorded",
+      body: `${data.kind} of ${data.amount} on "${project.name}"`,
+      link: `/projects/${projectId}`,
+      refEntity: "payment",
+      refId: payment.id,
+      dedupeKey: `payment:created:${payment.id}`,
+    });
+  }
+
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/payments");
   revalidatePath("/dashboard");

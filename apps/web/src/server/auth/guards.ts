@@ -86,3 +86,25 @@ export async function requireAdminAction() {
 export async function requireOwnerAction() {
   return requireOrgAction(["OWNER"]);
 }
+
+export async function requireSuperAdmin() {
+  const user = await requireUser();
+  const record = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { isSuperAdmin: true },
+  });
+  if (!record?.isSuperAdmin) redirect("/dashboard");
+  return user;
+}
+
+export async function requireSuperAdminAction() {
+  const user = await requireUserAction();
+  const record = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { isSuperAdmin: true },
+  });
+  if (!record?.isSuperAdmin) {
+    throw new AuthError("Super admin only", "FORBIDDEN");
+  }
+  return user;
+}
