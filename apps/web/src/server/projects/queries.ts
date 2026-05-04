@@ -88,6 +88,14 @@ export async function getProject(id: string) {
       payments: { orderBy: { paidAt: "desc" } },
       tasks: { orderBy: { createdAt: "desc" } },
       docs: { orderBy: { createdAt: "desc" } },
+      updates: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: {
+          author: { select: { id: true, name: true, email: true, image: true } },
+          reactions: true,
+        },
+      },
     },
   });
   if (!project) return null;

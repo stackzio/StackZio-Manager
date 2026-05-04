@@ -13,6 +13,7 @@ import { TasksTab } from "../_components/tasks-tab";
 import { PaymentsTab } from "../_components/payments-tab";
 import { TeamTab } from "../_components/team-tab";
 import { DocsTab } from "../_components/docs-tab";
+import { UpdatesTab } from "../_components/updates-tab";
 import { DeleteProjectButton } from "../_components/delete-project-button";
 
 export const metadata: Metadata = { title: "Project" };
@@ -55,8 +56,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
+        <TabsList className="flex flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="updates">Updates ({project.updates.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({project.tasks.length})</TabsTrigger>
           <TabsTrigger value="payments">Payments ({project.payments.length})</TabsTrigger>
           <TabsTrigger value="team">Team ({project.members.length})</TabsTrigger>
@@ -65,6 +67,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="overview">
           <ProjectOverview project={project} />
+        </TabsContent>
+
+        <TabsContent value="updates">
+          <UpdatesTab
+            projectId={project.id}
+            updates={project.updates}
+            currentUserId={user.id}
+            isAdmin={isAdmin}
+            canPost={canEditNonFinancial}
+          />
         </TabsContent>
 
         <TabsContent value="tasks">

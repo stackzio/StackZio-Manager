@@ -2,14 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@stackzio/db";
+import { prisma, type ProjectDocKind } from "@stackzio/db";
 import { requireOrgAction } from "@/server/auth/guards";
 import { logActivity } from "@/server/activity/log";
+
+const LINK_KINDS = ["LINK", "DRIVE", "FIGMA", "MOCKUP", "REPO", "VIDEO", "OTHER"] as const;
 
 const linkSchema = z.object({
   title: z.string().trim().min(1).max(120),
   url: z.string().trim().url(),
+  kind: z.enum(LINK_KINDS).default("LINK"),
+  description: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : undefined)),
 });
+
+export type LinkInput = z.input<typeof linkSchema>;
 
 async function ensureProjectAccess(projectId: string) {
   const ctx = await requireOrgAction();
@@ -24,10 +36,7 @@ async function ensureProjectAccess(projectId: string) {
   return { ctx, project };
 }
 
-export async function addProjectDocLinkAction(
-  projectId: string,
-  input: z.infer<typeof linkSchema>,
-) {
+export async function addProjectDocLinkAction(projectId: string, input: LinkInput) {
   const parsed = linkSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
@@ -44,7 +53,8 @@ export async function addProjectDocLinkAction(
       projectId: project.id,
       title: parsed.data.title,
       url: parsed.data.url,
-      kind: "LINK",
+      kind: parsed.data.kind as ProjectDocKind,
+      description: parsed.data.description,
       uploadedById: ctx.user.id,
     },
   });
@@ -54,7 +64,7 @@ export async function addProjectDocLinkAction(
     entity: "project",
     entityId: project.id,
     action: "doc_linked",
-    metadata: { docId: doc.id, title: doc.title },
+    metadata: { docId: doc.id, title: doc.title, kind: doc.kind },
   });
   revalidatePath(`/projects/${project.id}`);
   return { ok: true as const, docId: doc.id };
@@ -79,7 +89,7 @@ export async function deleteProjectDocAction(docId: string) {
     entity: "project",
     entityId: doc.projectId,
     action: "doc_deleted",
-    metadata: { docId, title: doc.title },
+    metadata: { docId, title: doc.title, kind: doc.kind },
   });
   revalidatePath(`/projects/${doc.projectId}`);
   return { ok: true as const };

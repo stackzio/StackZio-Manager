@@ -41,6 +41,8 @@ model User {
   clientsCreated  Client[]              @relation("ClientCreator")
   orgsCreated     Organization[]        @relation("OrgCreator")
   notifications   Notification[]
+  updatesPosted   ProjectUpdate[]       @relation("UpdateAuthor")
+  updateReactions ProjectUpdateReaction[]
 }
 
 model Account {
@@ -256,6 +258,7 @@ model Project {
   tasks        Task[]
   docs         ProjectDoc[]
   meetings     Meeting[]
+  updates      ProjectUpdate[]
 
   @@index([organizationId, status])
   @@index([organizationId, clientId])
@@ -284,6 +287,13 @@ model ProjectMember {
 enum ProjectDocKind {
   LINK
   FILE
+  IMAGE
+  DRIVE
+  FIGMA
+  MOCKUP
+  REPO
+  VIDEO
+  OTHER
 }
 
 model ProjectDoc {
@@ -292,6 +302,8 @@ model ProjectDoc {
   title        String
   url          String
   kind         ProjectDocKind @default(LINK)
+  description  String?
+  thumbnailUrl String?
   uploadedById String
   createdAt    DateTime       @default(now())
 
@@ -299,6 +311,42 @@ model ProjectDoc {
   uploadedBy User    @relation(fields: [uploadedById], references: [id])
 
   @@index([projectId])
+}
+
+enum ProjectUpdateKind {
+  UPDATE
+  MILESTONE
+  BLOCKER
+  ANNOUNCEMENT
+}
+
+model ProjectUpdate {
+  id        String            @id @default(cuid())
+  projectId String
+  authorId  String
+  kind      ProjectUpdateKind @default(UPDATE)
+  body      String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  project   Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User                    @relation("UpdateAuthor", fields: [authorId], references: [id])
+  reactions ProjectUpdateReaction[]
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectUpdateReaction {
+  id       String @id @default(cuid())
+  updateId String
+  userId   String
+  emoji    String
+
+  update ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([updateId, userId, emoji])
+  @@index([updateId])
 }
 
 // =============================================================

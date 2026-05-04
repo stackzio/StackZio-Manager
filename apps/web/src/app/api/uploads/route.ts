@@ -86,12 +86,14 @@ export async function POST(req: Request) {
     if (!member) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     try {
       const saved = await saveImage({ file, kind, ownerId: project.id });
+      const docKind = saved.contentType.startsWith("image/") ? "IMAGE" : "FILE";
       const doc = await prisma.projectDoc.create({
         data: {
           projectId: project.id,
           title: file.name,
           url: saved.url,
-          kind: "FILE",
+          kind: docKind,
+          thumbnailUrl: docKind === "IMAGE" ? saved.url : null,
           uploadedById: session.user.id,
         },
       });
@@ -101,7 +103,7 @@ export async function POST(req: Request) {
         entity: "project",
         entityId: project.id,
         action: "doc_uploaded",
-        metadata: { docId: doc.id, url: saved.url },
+        metadata: { docId: doc.id, url: saved.url, kind: docKind },
       });
       return NextResponse.json({ ...saved, docId: doc.id });
     } catch (e) {
