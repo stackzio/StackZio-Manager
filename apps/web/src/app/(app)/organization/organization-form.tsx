@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ImageUpload } from "@/components/upload/image-upload";
 import { updateOrganizationAction } from "@/server/organization/actions";
 
 interface Props {
@@ -34,6 +34,7 @@ interface Props {
 export function OrganizationForm({ organization }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [logoUrl, setLogoUrl] = useState<string>(organization.logoUrl ?? "");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,7 +52,7 @@ export function OrganizationForm({ organization }: Props) {
       country: String(fd.get("country") ?? "").trim(),
       postalCode: String(fd.get("postalCode") ?? "").trim(),
       defaultCurrency: String(fd.get("defaultCurrency") ?? "").trim().toUpperCase(),
-      logoUrl: String(fd.get("logoUrl") ?? "").trim(),
+      logoUrl: logoUrl,
     };
     start(async () => {
       const res = await updateOrganizationAction(input);
@@ -71,27 +72,13 @@ export function OrganizationForm({ organization }: Props) {
           <CardTitle>Brand</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="flex items-center gap-4">
-            <Avatar className="size-16 rounded-xl">
-              {organization.logoUrl ? (
-                <AvatarImage src={organization.logoUrl} alt={organization.name} />
-              ) : null}
-              <AvatarFallback className="rounded-xl text-base">
-                {organization.name.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input
-                id="logoUrl"
-                name="logoUrl"
-                type="url"
-                placeholder="https://…/logo.png"
-                defaultValue={organization.logoUrl ?? ""}
-              />
-              <p className="text-xs text-muted-foreground">Direct file upload arrives in Phase 2.</p>
-            </div>
-          </div>
+          <ImageUpload
+            kind="org-logo"
+            currentUrl={organization.logoUrl}
+            fallbackText={organization.name.slice(0, 2).toUpperCase()}
+            onUploaded={setLogoUrl}
+            rounded="xl"
+          />
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Name" id="name" required>
               <Input id="name" name="name" required defaultValue={organization.name} maxLength={80} />

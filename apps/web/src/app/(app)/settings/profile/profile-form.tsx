@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/upload/image-upload";
 import { updateProfileAction } from "@/server/user/actions";
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 export function ProfileForm({ user }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [imageUrl, setImageUrl] = useState<string>(user.image ?? "");
 
   const initials = (user.name ?? user.email)
     .split(/[\s.@]+/)
@@ -31,7 +32,7 @@ export function ProfileForm({ user }: Props) {
     const fd = new FormData(e.currentTarget);
     const input = {
       name: String(fd.get("name") ?? "").trim(),
-      image: String(fd.get("image") ?? "").trim(),
+      image: imageUrl,
     };
     start(async () => {
       const res = await updateProfileAction(input);
@@ -52,23 +53,13 @@ export function ProfileForm({ user }: Props) {
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-5">
-          <div className="flex items-center gap-4">
-            <Avatar className="size-16">
-              {user.image ? <AvatarImage src={user.image} alt={user.name ?? user.email} /> : null}
-              <AvatarFallback className="text-base">{initials || "U"}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="image">Avatar URL</Label>
-              <Input
-                id="image"
-                name="image"
-                type="url"
-                placeholder="https://…/avatar.jpg"
-                defaultValue={user.image ?? ""}
-              />
-              <p className="text-xs text-muted-foreground">Direct upload arrives in Phase 2.</p>
-            </div>
-          </div>
+          <ImageUpload
+            kind="user-avatar"
+            currentUrl={user.image}
+            fallbackText={initials || "U"}
+            onUploaded={setImageUrl}
+            rounded="full"
+          />
           <div className="space-y-1.5">
             <Label htmlFor="name">Full name</Label>
             <Input id="name" name="name" required defaultValue={user.name ?? ""} maxLength={80} />
