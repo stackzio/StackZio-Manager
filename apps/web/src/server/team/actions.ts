@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { addDays } from "date-fns";
 import { randomBytes } from "node:crypto";
 import nodemailer from "nodemailer";
@@ -10,6 +10,7 @@ import { env, hasEmail } from "@/lib/env";
 import { requireAdminAction, requireOrgAction, requireOwnerAction, requireUserAction } from "@/server/auth/guards";
 import { logActivity } from "@/server/activity/log";
 import { emitNotification } from "@/server/notifications/actions";
+import { tagOrgMembers, tagUserOrgs } from "@/server/cache";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -148,6 +149,7 @@ export async function changeMemberRoleAction(memberId: string, input: z.infer<ty
     metadata: { from: member.role, to: role },
   });
   revalidatePath("/team");
+  revalidateTag(tagOrgMembers(ctx.org.id));
   return { ok: true as const };
 }
 
@@ -186,6 +188,8 @@ export async function removeMemberAction(memberId: string) {
     metadata: { role: member.role },
   });
   revalidatePath("/team");
+  revalidateTag(tagOrgMembers(ctx.org.id));
+  revalidateTag(tagUserOrgs(member.userId));
   return { ok: true as const };
 }
 
@@ -215,6 +219,8 @@ export async function leaveOrganizationAction() {
     metadata: { role: member.role },
   });
   revalidatePath("/", "layout");
+  revalidateTag(tagOrgMembers(ctx.org.id));
+  revalidateTag(tagUserOrgs(ctx.user.id));
   return { ok: true as const };
 }
 
@@ -295,5 +301,7 @@ export async function acceptInviteAction(token: string) {
   }
 
   revalidatePath("/", "layout");
+  revalidateTag(tagOrgMembers(invite.organizationId));
+  revalidateTag(tagUserOrgs(user.id));
   return { ok: true as const, organizationId: invite.organizationId };
 }

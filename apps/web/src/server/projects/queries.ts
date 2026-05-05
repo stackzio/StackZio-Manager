@@ -1,6 +1,7 @@
 import type { Prisma } from "@stackzio/db";
 import { prisma } from "@stackzio/db";
 import { requireOrg } from "@/server/auth/guards";
+import { cachedOrgClients, cachedOrgMembers } from "@/server/cache";
 
 export interface ProjectListParams {
   q?: string;
@@ -115,18 +116,10 @@ export async function getProject(id: string) {
 
 export async function listOrgUsersForAssignment() {
   const { org } = await requireOrg();
-  const memberships = await prisma.organizationMember.findMany({
-    where: { organizationId: org.id },
-    include: { user: { select: { id: true, name: true, email: true, image: true } } },
-  });
-  return memberships.map((m) => ({ ...m.user, role: m.role }));
+  return cachedOrgMembers(org.id);
 }
 
 export async function listOrgClientsForSelect() {
   const { org } = await requireOrg();
-  return prisma.client.findMany({
-    where: { organizationId: org.id },
-    select: { id: true, name: true, company: true },
-    orderBy: { name: "asc" },
-  });
+  return cachedOrgClients(org.id);
 }

@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@stackzio/db";
 import { requireOrgAction } from "@/server/auth/guards";
 import { logActivity } from "@/server/activity/log";
+import { tagOrgClients } from "@/server/cache";
 import { upsertClientSchema, type UpsertClientInput } from "./schemas";
 
 export type ClientResult =
@@ -52,6 +53,7 @@ export async function createClientAction(input: UpsertClientInput): Promise<Clie
   });
 
   revalidatePath("/clients");
+  revalidateTag(tagOrgClients(ctx.org.id));
   return { ok: true, clientId: created.id };
 }
 
@@ -127,6 +129,7 @@ export async function updateClientAction(
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidateTag(tagOrgClients(ctx.org.id));
   return { ok: true, clientId: id };
 }
 
@@ -150,5 +153,6 @@ export async function deleteClientAction(id: string): Promise<{ ok: boolean; err
     metadata: { name: existing.name },
   });
   revalidatePath("/clients");
+  revalidateTag(tagOrgClients(ctx.org.id));
   return { ok: true };
 }

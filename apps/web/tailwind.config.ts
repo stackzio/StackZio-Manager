@@ -83,7 +83,14 @@ const config: Config = {
       },
       backgroundImage: {
         "brand-gradient":
-          "linear-gradient(135deg, #7c3aed 0%, #d946ef 50%, #f97316 100%)",
+          "linear-gradient(135deg, #6d28d9 0%, #a855f7 35%, #ec4899 70%, #f97316 100%)",
+        "brand-gradient-soft":
+          "linear-gradient(135deg, rgba(109,40,217,0.18) 0%, rgba(168,85,247,0.18) 35%, rgba(236,72,153,0.18) 70%, rgba(249,115,22,0.18) 100%)",
+        "brand-radial":
+          "radial-gradient(80% 80% at 0% 0%, #6d28d9 0%, transparent 60%), radial-gradient(80% 80% at 100% 100%, #f97316 0%, transparent 60%), linear-gradient(135deg, #a855f7 0%, #ec4899 100%)",
+      },
+      boxShadow: {
+        glow: "0 10px 30px -8px rgba(124,58,237,0.45), 0 4px 12px -4px rgba(236,72,153,0.25)",
       },
       keyframes: {
         "accordion-down": {

@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { prisma } from "@stackzio/db";
 import { uniqueSlug } from "@stackzio/lib/slug";
 import { z } from "zod";
 import { ACTIVE_ORG_COOKIE, getCurrentUser, requireAdminAction, requireOrgAction, requireUserAction } from "@/server/auth/guards";
+import { cachedUserOrgs, tagOrgMembers, tagUserOrgs } from "@/server/cache";
 
 const createOrgSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -75,6 +76,8 @@ export async function createOrganizationAction(input: CreateOrgInput): Promise<C
   });
 
   revalidatePath("/", "layout");
+  revalidateTag(tagUserOrgs(user.id));
+  revalidateTag(tagOrgMembers(org.id));
   return { ok: true, organizationId: org.id, slug: org.slug };
 }
 
@@ -158,24 +161,19 @@ export async function updateOrganizationAction(input: z.infer<typeof updateOrgSc
 
   revalidatePath("/organization");
   revalidatePath("/", "layout");
+  // Org name/logo changed → topbar switcher needs refresh for every member.
+  const memberIds = await prisma.organizationMember.findMany({
+    where: { organizationId: ctx.org.id },
+    select: { userId: true },
+  });
+  for (const m of memberIds) revalidateTag(tagUserOrgs(m.userId));
   return { ok: true as const, organization: updated };
 }
 
 export async function listMyOrganizations() {
   const user = await getCurrentUser();
   if (!user) return [];
-  const memberships = await prisma.organizationMember.findMany({
-    where: { userId: user.id },
-    include: { organization: true },
-    orderBy: { joinedAt: "desc" },
-  });
-  return memberships.map((m) => ({
-    id: m.organization.id,
-    name: m.organization.name,
-    slug: m.organization.slug,
-    logoUrl: m.organization.logoUrl,
-    role: m.role,
-  }));
+  return cachedUserOrgs(user.id);
 }
 
 export async function getActiveOrganizationDetails() {

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { prisma, type OrgRole } from "@stackzio/db";
@@ -14,18 +15,26 @@ export class AuthError extends Error {
   }
 }
 
-/** Returns the session user or redirects to /login. Use in pages. */
-export async function requireUser() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  return { id: session.user.id, email: session.user.email!, name: session.user.name, image: session.user.image };
-}
-
-/** Like requireUser, but returns null instead of redirecting. Use in server actions to throw structured errors. */
-export async function getCurrentUser() {
+/**
+ * React.cache() memoises the result for the duration of a single request,
+ * so multiple components / queries that all need the active org share one
+ * DB lookup instead of issuing 3+ identical queries.
+ */
+export const getCurrentUser = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { id: session.user.id, email: session.user.email!, name: session.user.name, image: session.user.image };
+  return {
+    id: session.user.id,
+    email: session.user.email!,
+    name: session.user.name,
+    image: session.user.image,
+  };
+});
+
+export async function requireUser() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
 }
 
 export async function requireUserAction() {
@@ -34,14 +43,12 @@ export async function requireUserAction() {
   return user;
 }
 
-/** Returns the active organization for the current user, or null if none. */
-export async function getActiveOrg() {
+export const getActiveOrg = cache(async () => {
   const user = await getCurrentUser();
   if (!user) return null;
   const cookieStore = await cookies();
   const activeId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
 
-  // Try cookie first.
   if (activeId) {
     const member = await prisma.organizationMember.findFirst({
       where: { userId: user.id, organizationId: activeId },
@@ -50,7 +57,6 @@ export async function getActiveOrg() {
     if (member) return { org: member.organization, role: member.role };
   }
 
-  // Fall back to most-recently-joined membership.
   const member = await prisma.organizationMember.findFirst({
     where: { userId: user.id },
     include: { organization: true },
@@ -58,17 +64,15 @@ export async function getActiveOrg() {
   });
   if (!member) return null;
   return { org: member.organization, role: member.role };
-}
+});
 
-/** Use in pages — redirects to onboarding if no org. */
-export async function requireOrg() {
+export const requireOrg = cache(async () => {
   const user = await requireUser();
   const active = await getActiveOrg();
   if (!active) redirect("/onboarding/create-organization");
   return { user, ...active };
-}
+});
 
-/** Use in server actions — throws structured errors. */
 export async function requireOrgAction(roles?: OrgRole[]) {
   const user = await requireUserAction();
   const active = await getActiveOrg();
@@ -87,7 +91,7 @@ export async function requireOwnerAction() {
   return requireOrgAction(["OWNER"]);
 }
 
-export async function requireSuperAdmin() {
+export const requireSuperAdmin = cache(async () => {
   const user = await requireUser();
   const record = await prisma.user.findUnique({
     where: { id: user.id },
@@ -95,7 +99,7 @@ export async function requireSuperAdmin() {
   });
   if (!record?.isSuperAdmin) redirect("/dashboard");
   return user;
-}
+});
 
 export async function requireSuperAdminAction() {
   const user = await requireUserAction();
