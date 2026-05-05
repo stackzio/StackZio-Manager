@@ -5,41 +5,30 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
-  CalendarClock,
   ChevronsLeft,
-  CreditCard,
-  FolderKanban,
   LayoutDashboard,
-  Settings,
+  Shield,
   Users,
-  UserCog,
 } from "lucide-react";
-import type { OrgRole } from "@stackzio/db";
-import { cn } from "@/lib/cn";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/app-shell/sidebar-context";
+import { cn } from "@/lib/cn";
 
 const NAV: Array<{
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
+  exact?: boolean;
 }> = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/payments", label: "Payments", icon: CreditCard },
-  { href: "/meetings", label: "Meetings", icon: CalendarClock },
-  { href: "/team", label: "Team", icon: UserCog, adminOnly: true },
-  { href: "/organization", label: "Organization", icon: Building2, adminOnly: true },
+  { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/admin/organizations", label: "Organizations", icon: Building2 },
+  { href: "/admin/users", label: "Users", icon: Users },
 ];
 
-export function Sidebar({ role }: { role: OrgRole }) {
+export function AdminSidebar() {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
-  const isAdmin = role === "OWNER" || role === "ADMIN";
-  const items = NAV.filter((i) => !i.adminOnly || isAdmin);
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -47,9 +36,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
         initial={false}
         animate={{ width: collapsed ? 72 : 256 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-card lg:flex",
-        )}
+        className="fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-card lg:flex"
       >
         <div
           className={cn(
@@ -57,7 +44,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
             collapsed ? "justify-center px-2" : "px-6",
           )}
         >
-          <Link href="/dashboard" className="group flex items-center gap-2">
+          <Link href="/admin" className="flex items-center gap-2">
             <AnimatePresence mode="popLayout" initial={false}>
               {collapsed ? (
                 <motion.span
@@ -84,9 +71,31 @@ export function Sidebar({ role }: { role: OrgRole }) {
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        <AnimatePresence initial={false}>
+          {!collapsed ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="px-3 py-3"
+            >
+              <div className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs">
+                <p className="flex items-center gap-1 font-semibold text-warning">
+                  <Shield className="size-3" /> Super admin
+                </p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Global view across the whole instance.
+                </p>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <nav className="flex-1 space-y-1 px-3 py-1">
+          {NAV.map((item) => {
+            const active = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
             const link = (
               <Link
@@ -109,7 +118,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
                 ) : null}
                 <Icon
                   className={cn(
-                    "size-4 shrink-0 transition-transform",
+                    "size-4 shrink-0",
                     active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
                   )}
                 />
@@ -144,19 +153,16 @@ export function Sidebar({ role }: { role: OrgRole }) {
 
         <div className="border-t p-3">
           {(() => {
-            const settingsActive = pathname.startsWith("/settings");
             const link = (
               <Link
-                href="/settings/profile"
+                href="/dashboard"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors",
                   collapsed ? "justify-center px-2.5 py-2.5" : "px-3 py-2",
-                  settingsActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  "hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                <Settings className="size-4 shrink-0" />
+                <ChevronsLeft className="size-4 shrink-0" />
                 <AnimatePresence initial={false}>
                   {!collapsed ? (
                     <motion.span
@@ -166,7 +172,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
                       transition={{ duration: 0.16 }}
                       className="truncate whitespace-nowrap"
                     >
-                      Settings
+                      Back to app
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
@@ -176,7 +182,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
               <Tooltip>
                 <TooltipTrigger asChild>{link}</TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
-                  Settings
+                  Back to app
                 </TooltipContent>
               </Tooltip>
             ) : (
@@ -185,15 +191,11 @@ export function Sidebar({ role }: { role: OrgRole }) {
           })()}
         </div>
 
-        {/* Collapse toggle — pinned to the outer right edge of the sidebar */}
         <button
           type="button"
           onClick={toggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "absolute -right-3 top-1/2 z-40 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition-all",
-            "hover:border-primary/40 hover:text-primary hover:scale-105",
-          )}
+          className="absolute -right-3 top-1/2 z-40 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition-all hover:scale-105 hover:border-primary/40 hover:text-primary"
         >
           <motion.span
             animate={{ rotate: collapsed ? 180 : 0 }}

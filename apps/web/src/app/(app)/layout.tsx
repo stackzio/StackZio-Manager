@@ -6,6 +6,8 @@ import { getMyNotifications } from "@/server/notifications/queries";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
 import { CommandPalette } from "@/components/app-shell/command-palette";
+import { SidebarProvider } from "@/components/app-shell/sidebar-context";
+import { MainPane } from "@/components/app-shell/main-pane";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -20,30 +22,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar role={active.role} orgName={active.org.name} />
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
-        <Topbar
-          user={{
-            id: session.user.id,
-            name: session.user.name ?? null,
-            email: session.user.email,
-            image: session.user.image ?? null,
-            isSuperAdmin: Boolean(session.user.isSuperAdmin),
-          }}
-          activeOrg={{
-            id: active.org.id,
-            name: active.org.name,
-            slug: active.org.slug,
-            logoUrl: active.org.logoUrl,
-            role: active.role,
-          }}
-          organizations={orgs}
-          notifications={{ unread: notifications.unread, items: notifications.items }}
-        />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+    <SidebarProvider>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar role={active.role} />
+        <MainPane>
+          <Topbar
+            user={{
+              id: session.user.id,
+              name: session.user.name ?? null,
+              email: session.user.email,
+              image: session.user.image ?? null,
+              isSuperAdmin: Boolean(session.user.isSuperAdmin),
+            }}
+            activeOrg={{
+              id: active.org.id,
+              name: active.org.name,
+              slug: active.org.slug,
+              logoUrl: active.org.logoUrl,
+              role: active.role,
+            }}
+            organizations={orgs}
+            notifications={{ unread: notifications.unread, items: notifications.items }}
+          />
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        </MainPane>
+        <CommandPalette isAdmin={active.role === "OWNER" || active.role === "ADMIN"} />
       </div>
-      <CommandPalette isAdmin={active.role === "OWNER" || active.role === "ADMIN"} />
-    </div>
+    </SidebarProvider>
   );
 }
