@@ -17,7 +17,9 @@ const inviteSchema = z.object({
   role: z.enum(["OWNER", "ADMIN", "MEMBER"]).default("MEMBER"),
 });
 
-export type InviteResult = { ok: true; inviteId: string; link: string } | { ok: false; error: string };
+export type InviteResult =
+  | { ok: true; inviteId: string; link: string; emailSent: boolean; emailError?: string }
+  | { ok: false; error: string };
 
 export async function inviteMemberAction(input: z.infer<typeof inviteSchema>): Promise<InviteResult> {
   const ctx = await requireAdminAction();
@@ -61,20 +63,31 @@ export async function inviteMemberAction(input: z.infer<typeof inviteSchema>): P
   const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
   const link = `${baseUrl}/invite/${invite.token}`;
 
+  // Try to send the email if SMTP is configured. Never fail the action if the
+  // mail server rejects — the invite row already exists and the link below
+  // can be shared manually. The form copies the link to the clipboard.
+  let emailSent = false;
+  let emailError: string | undefined;
   if (hasEmail) {
-    const transport = nodemailer.createTransport({
-      host: env.SMTP_HOST!,
-      port: Number(env.SMTP_PORT ?? 587),
-      secure: Number(env.SMTP_PORT ?? 587) === 465,
-      auth: { user: env.SMTP_USER!, pass: env.SMTP_PASS! },
-    });
-    await transport.sendMail({
-      from: env.EMAIL_FROM,
-      to: email,
-      subject: `${ctx.user.name ?? "Someone"} invited you to ${ctx.org.name} on StackZio Manager`,
-      text: `Click to join: ${link}\n\nThis link is valid for 7 days.`,
-      html: `<p>You're invited to <b>${ctx.org.name}</b> as <b>${invite.role}</b>.</p><p><a href="${link}">${link}</a></p><p>Valid for 7 days.</p>`,
-    });
+    try {
+      const transport = nodemailer.createTransport({
+        host: env.SMTP_HOST!,
+        port: Number(env.SMTP_PORT ?? 587),
+        secure: Number(env.SMTP_PORT ?? 587) === 465,
+        auth: { user: env.SMTP_USER!, pass: env.SMTP_PASS! },
+      });
+      await transport.sendMail({
+        from: env.EMAIL_FROM,
+        to: email,
+        subject: `${ctx.user.name ?? "Someone"} invited you to ${ctx.org.name} on StackZio Manager`,
+        text: `Click to join: ${link}\n\nThis link is valid for 7 days.`,
+        html: `<p>You're invited to <b>${ctx.org.name}</b> as <b>${invite.role}</b>.</p><p><a href="${link}">${link}</a></p><p>Valid for 7 days.</p>`,
+      });
+      emailSent = true;
+    } catch (e) {
+      emailError = e instanceof Error ? e.message : "Unknown error";
+      console.warn(`[team-invite] Email send failed for ${email}:`, emailError);
+    }
   } else {
     console.warn(`[team-invite] Email disabled. Invite link for ${email}: ${link}`);
   }
@@ -89,7 +102,7 @@ export async function inviteMemberAction(input: z.infer<typeof inviteSchema>): P
   });
 
   revalidatePath("/team");
-  return { ok: true, inviteId: invite.id, link };
+  return { ok: true, inviteId: invite.id, link, emailSent, emailError };
 }
 
 export async function revokeInviteAction(inviteId: string) {
