@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "4mb",
     },
+    // Client router cache: keep recently-visited pages warm so back/forward and
+    // re-visits are instant. Mutations call router.refresh() / revalidatePath()
+    // explicitly when data actually changes.
+    staleTimes: {
+      dynamic: 60, // dynamic routes (most of the app) cached for 60s on the client
+      static: 300, // static routes cached for 5 minutes
+    },
   },
   transpilePackages: ["@stackzio/db", "@stackzio/lib"],
   images: {
