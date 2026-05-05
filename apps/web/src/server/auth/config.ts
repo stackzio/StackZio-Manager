@@ -54,29 +54,35 @@ export const authConfig: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // First-time sign-in (Credentials.authorize() returned a user).
       if (user) {
         token.id = user.id;
       }
-      // Auto-promote configured superadmins (idempotent — only flips DB when needed).
-      if (token.email && isSuperadminEmail(token.email as string)) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: (token.email as string).toLowerCase() },
-          select: { id: true, isSuperAdmin: true },
-        });
-        if (dbUser && !dbUser.isSuperAdmin) {
-          await prisma.user.update({
-            where: { id: dbUser.id },
-            data: { isSuperAdmin: true },
-          });
-        }
-        token.isSuperAdmin = true;
-      } else if (token.id) {
+
+      // Subsequent calls (refresh / every page load) — verify the user still
+      // exists in the DB. If they don't (e.g. we swapped databases, or the
+      // account was deleted), return null to invalidate the session and sign
+      // them out cleanly.
+      if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { isSuperAdmin: true },
+          select: { id: true, email: true, isSuperAdmin: true },
         });
-        token.isSuperAdmin = dbUser?.isSuperAdmin ?? false;
+        if (!dbUser) {
+          // Orphan JWT — invalidate.
+          return null as never;
+        }
+        // Auto-promote configured superadmins (idempotent).
+        if (dbUser.email && isSuperadminEmail(dbUser.email) && !dbUser.isSuperAdmin) {
+          await prisma.user
+            .update({ where: { id: dbUser.id }, data: { isSuperAdmin: true } })
+            .catch(() => null);
+          token.isSuperAdmin = true;
+        } else {
+          token.isSuperAdmin = dbUser.isSuperAdmin;
+        }
       }
+
       return token;
     },
     async session({ session, token }) {
