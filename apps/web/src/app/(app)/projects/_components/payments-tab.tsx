@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { FileSpreadsheet, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { PaymentKind, PaymentMethod } from "@stackzio/db";
 import { formatDate } from "@stackzio/lib/date";
@@ -112,11 +113,18 @@ export function PaymentsTab({ projectId, payments, priceTotal, paid, outstanding
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Payments</CardTitle>
-          {canEdit ? (
-            <Button type="button" variant="gradient" size="sm" onClick={() => setShowForm((v) => !v)}>
-              <Plus className="size-4" /> Record payment
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/projects/${projectId}/statement`}>
+                <FileSpreadsheet className="size-4" /> Statement
+              </Link>
             </Button>
-          ) : null}
+            {canEdit ? (
+              <Button type="button" variant="gradient" size="sm" onClick={() => setShowForm((v) => !v)}>
+                <Plus className="size-4" /> Collect payment
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {showForm && canEdit ? (
@@ -203,6 +211,11 @@ export function PaymentsTab({ projectId, payments, priceTotal, paid, outstanding
                       {p.note ? ` · ${p.note}` : ""}
                     </p>
                   </div>
+                  <Button asChild variant="outline" size="sm" title="View receipt">
+                    <Link href={`/projects/${projectId}/payments/${p.id}/receipt`}>
+                      <FileText className="size-4" /> Receipt
+                    </Link>
+                  </Button>
                   {canEdit ? (
                     <Button variant="ghost" size="icon" onClick={() => onDelete(p)} aria-label="Delete payment">
                       <Trash2 className="size-4 text-destructive" />

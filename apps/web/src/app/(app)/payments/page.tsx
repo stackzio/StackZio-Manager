@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CreditCard } from "lucide-react";
+import { CreditCard, FileText } from "lucide-react";
 import { listPayments } from "@/server/payments/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Pagination } from "../clients/_components/pagination";
 import { formatDate } from "@stackzio/lib/date";
 import { formatMoney } from "@stackzio/lib/money";
@@ -63,6 +64,11 @@ export default async function PaymentsPage({
                     <p className="font-semibold tabular-nums">
                       {formatMoney(Number(p.amount), p.project.currency as never)}
                     </p>
+                    <Button asChild variant="outline" size="sm" title="View receipt">
+                      <Link href={`/projects/${p.project.id}/payments/${p.id}/receipt`}>
+                        <FileText className="size-4" /> Receipt
+                      </Link>
+                    </Button>
                   </li>
                 ))}
               </ul>

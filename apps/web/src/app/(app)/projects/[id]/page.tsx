@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Edit } from "lucide-react";
+import { ChevronLeft, Edit, FileSpreadsheet, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +43,18 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         actions={
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{project.currency}</Badge>
+            <Button asChild variant="outline">
+              <Link href={`/projects/${project.id}/statement`}>
+                <FileSpreadsheet className="size-4" /> Statement
+              </Link>
+            </Button>
+            {isAdmin ? (
+              <Button asChild variant="gradient">
+                <Link href={`/projects/${project.id}?tab=payments`}>
+                  <Wallet className="size-4" /> Collect payment
+                </Link>
+              </Button>
+            ) : null}
             {canEditNonFinancial ? (
               <Button asChild variant="outline">
                 <Link href={`/projects/${project.id}/edit`}>
