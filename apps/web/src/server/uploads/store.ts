@@ -1,8 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
-import path from "node:path";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
+/**
+ * Uploads to Supabase Storage. One bucket "stackzio-uploads" with sub-paths
+ * per kind (org-logo / user-avatar / project-doc). The bucket is public so
+ * URLs work directly in <img> tags without signed-URL roundtrips.
+ *
+ * Server-side only. Uses the service role key so it bypasses RLS — auth
+ * is enforced upstream in the /api/uploads route handler.
+ */
+
+const BUCKET = "stackzio-uploads";
 
 const IMAGE_TYPES = new Set([
   "image/png",
@@ -31,7 +39,7 @@ const PROJECT_DOC_TYPES = new Set<string>([
   "video/quicktime",
 ]);
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB for doc uploads
+const MAX_BYTES = 25 * 1024 * 1024; // 25 MB for project docs
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB for logos/avatars
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -66,6 +74,38 @@ export interface SavedUpload {
   contentType: string;
 }
 
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (_supabase) return _supabase;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Uploads disabled: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set. " +
+        "Get the service role key at https://app.supabase.com → Project Settings → API.",
+    );
+  }
+  _supabase = createClient(url, key, { auth: { persistSession: false } });
+  return _supabase;
+}
+
+let _bucketReady = false;
+async function ensureBucket(): Promise<void> {
+  if (_bucketReady) return;
+  const sb = getSupabase();
+  const { data: buckets, error: listErr } = await sb.storage.listBuckets();
+  if (listErr) throw listErr;
+  const exists = buckets?.some((b) => b.name === BUCKET);
+  if (!exists) {
+    const { error: createErr } = await sb.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: MAX_BYTES,
+    });
+    if (createErr) throw createErr;
+  }
+  _bucketReady = true;
+}
+
 export async function saveImage(args: {
   file: File;
   kind: UploadKind;
@@ -77,9 +117,7 @@ export async function saveImage(args: {
   const sizeLabel = isImageOnly ? "4 MB" : "25 MB";
 
   if (!allowed.has(args.file.type)) {
-    if (isImageOnly) {
-      throw new Error("Only PNG, JPEG, WebP, SVG or GIF are allowed");
-    }
+    if (isImageOnly) throw new Error("Only PNG, JPEG, WebP, SVG or GIF are allowed");
     throw new Error(
       "Unsupported file type. Allowed: images, PDF, Word, Excel, PowerPoint, ZIP, MP4 / WebM",
     );
@@ -87,17 +125,28 @@ export async function saveImage(args: {
   if (args.file.size > cap) {
     throw new Error(`File is too large (max ${sizeLabel})`);
   }
+
+  await ensureBucket();
+
   const ext = EXT_BY_MIME[args.file.type] ?? "bin";
-  const subdir = args.kind;
-  const dir = path.join(UPLOAD_ROOT, subdir);
-  await mkdir(dir, { recursive: true });
   const id = randomBytes(8).toString("hex");
-  const filename = `${args.ownerId}-${id}.${ext}`;
-  const abs = path.join(dir, filename);
-  const buf = Buffer.from(await args.file.arrayBuffer());
-  await writeFile(abs, buf);
+  const objectPath = `${args.kind}/${args.ownerId}-${id}.${ext}`;
+
+  const sb = getSupabase();
+  const buffer = Buffer.from(await args.file.arrayBuffer());
+
+  const { error: uploadErr } = await sb.storage
+    .from(BUCKET)
+    .upload(objectPath, buffer, {
+      contentType: args.file.type,
+      upsert: false,
+      cacheControl: "31536000", // 1 year — files are immutable (random suffix)
+    });
+  if (uploadErr) throw uploadErr;
+
+  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(objectPath);
   return {
-    url: `/uploads/${subdir}/${filename}`,
+    url: pub.publicUrl,
     kind: args.kind,
     byteSize: args.file.size,
     contentType: args.file.type,

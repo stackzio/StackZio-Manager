@@ -13,6 +13,8 @@ const serverEnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPERADMIN_EMAILS: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
@@ -23,6 +25,7 @@ export const hasGoogleAuth = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRE
 export const hasEmail = Boolean(
   env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.EMAIL_FROM,
 );
+export const hasSupabaseStorage = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 
 export const SUPERADMIN_EMAIL_SET = new Set(
   (env.SUPERADMIN_EMAILS ?? "")
