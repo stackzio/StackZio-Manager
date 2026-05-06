@@ -1,16 +1,15 @@
 import { randomBytes } from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 
 /**
- * Uploads to Supabase Storage. One bucket "stackzio-uploads" with sub-paths
- * per kind (org-logo / user-avatar / project-doc). The bucket is public so
- * URLs work directly in <img> tags without signed-URL roundtrips.
+ * Uploads to Cloudinary. We route by MIME:
+ *   - image/*  → resource_type: "image", returned URL adds f_auto,q_auto
+ *                so the browser gets WebP/AVIF at the right quality.
+ *   - video/*  → resource_type: "video"
+ *   - else     → resource_type: "raw" (PDF, Word, Excel, ZIP, etc.)
  *
- * Server-side only. Uses the service role key so it bypasses RLS — auth
- * is enforced upstream in the /api/uploads route handler.
+ * Server-side only. Cloudinary credentials never reach the client.
  */
-
-const BUCKET = "stackzio-uploads";
 
 const IMAGE_TYPES = new Set([
   "image/png",
@@ -42,29 +41,6 @@ const PROJECT_DOC_TYPES = new Set<string>([
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB for project docs
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB for logos/avatars
 
-const EXT_BY_MIME: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-  "image/gif": "gif",
-  "application/pdf": "pdf",
-  "application/zip": "zip",
-  "application/x-zip-compressed": "zip",
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.ms-powerpoint": "ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "text/plain": "txt",
-  "text/csv": "csv",
-  "text/markdown": "md",
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-  "video/quicktime": "mov",
-};
-
 export type UploadKind = "org-logo" | "user-avatar" | "project-doc";
 
 export interface SavedUpload {
@@ -74,36 +50,26 @@ export interface SavedUpload {
   contentType: string;
 }
 
-let _supabase: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient {
-  if (_supabase) return _supabase;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
+let _configured = false;
+function configureCloudinary(): void {
+  if (_configured) return;
+  const cloud_name = process.env.CLOUDINARY_CLOUD_NAME;
+  const api_key = process.env.CLOUDINARY_API_KEY;
+  const api_secret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloud_name || !api_key || !api_secret) {
     throw new Error(
-      "Uploads disabled: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set. " +
-        "Get the service role key at https://app.supabase.com → Project Settings → API.",
+      "Uploads disabled: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and " +
+        "CLOUDINARY_API_SECRET must be set. Get them at https://console.cloudinary.com → Dashboard.",
     );
   }
-  _supabase = createClient(url, key, { auth: { persistSession: false } });
-  return _supabase;
+  cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
+  _configured = true;
 }
 
-let _bucketReady = false;
-async function ensureBucket(): Promise<void> {
-  if (_bucketReady) return;
-  const sb = getSupabase();
-  const { data: buckets, error: listErr } = await sb.storage.listBuckets();
-  if (listErr) throw listErr;
-  const exists = buckets?.some((b) => b.name === BUCKET);
-  if (!exists) {
-    const { error: createErr } = await sb.storage.createBucket(BUCKET, {
-      public: true,
-      fileSizeLimit: MAX_BYTES,
-    });
-    if (createErr) throw createErr;
-  }
-  _bucketReady = true;
+function resourceTypeFor(mime: string): "image" | "video" | "raw" {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  return "raw";
 }
 
 export async function saveImage(args: {
@@ -126,27 +92,50 @@ export async function saveImage(args: {
     throw new Error(`File is too large (max ${sizeLabel})`);
   }
 
-  await ensureBucket();
+  configureCloudinary();
 
-  const ext = EXT_BY_MIME[args.file.type] ?? "bin";
-  const id = randomBytes(8).toString("hex");
-  const objectPath = `${args.kind}/${args.ownerId}-${id}.${ext}`;
-
-  const sb = getSupabase();
   const buffer = Buffer.from(await args.file.arrayBuffer());
+  const id = `${args.ownerId}-${randomBytes(8).toString("hex")}`;
+  const folder = `stackzio/${args.kind}`;
+  const resource_type = resourceTypeFor(args.file.type);
 
-  const { error: uploadErr } = await sb.storage
-    .from(BUCKET)
-    .upload(objectPath, buffer, {
-      contentType: args.file.type,
-      upsert: false,
-      cacheControl: "31536000", // 1 year — files are immutable (random suffix)
+  const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        public_id: id,
+        resource_type,
+        // For raw / videos we keep the original filename so downloads make sense.
+        use_filename: resource_type !== "image",
+        unique_filename: false,
+        overwrite: false,
+      },
+      (error, uploadResult) => {
+        if (error || !uploadResult) {
+          reject(error ?? new Error("Cloudinary returned no result"));
+          return;
+        }
+        resolve(uploadResult);
+      },
+    );
+    stream.end(buffer);
+  });
+
+  // For images, return an auto-format / auto-quality URL so the browser gets
+  // WebP/AVIF at appropriate quality with no extra config on our side.
+  let url = result.secure_url;
+  if (resource_type === "image") {
+    url = cloudinary.url(result.public_id, {
+      resource_type: "image",
+      secure: true,
+      fetch_format: "auto",
+      quality: "auto",
+      version: result.version,
     });
-  if (uploadErr) throw uploadErr;
+  }
 
-  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(objectPath);
   return {
-    url: pub.publicUrl,
+    url,
     kind: args.kind,
     byteSize: args.file.size,
     contentType: args.file.type,
