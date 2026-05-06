@@ -20,7 +20,29 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-export const env = serverEnvSchema.parse(process.env);
+type ServerEnv = z.infer<typeof serverEnvSchema>;
+
+// During Vercel build, required env vars may not be set yet (first deploy).
+// We log a warning instead of throwing so the build can complete; if they're
+// still missing at runtime, the actual API call will surface a real error.
+const parsed = serverEnvSchema.safeParse(process.env);
+if (!parsed.success) {
+  // Only log during build — don't spam the dev console.
+  if (process.env.NEXT_PHASE === "phase-production-build" || process.env.SKIP_ENV_VALIDATION === "1") {
+    console.warn(
+      "[env] Some required env vars are missing or invalid (will fail at runtime if used):",
+      JSON.stringify(parsed.error.flatten().fieldErrors),
+    );
+  } else {
+    throw new Error(
+      "Invalid env: " +
+        JSON.stringify(parsed.error.flatten().fieldErrors) +
+        ". Set DATABASE_URL and AUTH_SECRET (min 32 chars) at minimum.",
+    );
+  }
+}
+
+export const env: ServerEnv = (parsed.success ? parsed.data : (process.env as unknown)) as ServerEnv;
 
 export const hasGoogleAuth = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET);
 export const hasEmail = Boolean(
