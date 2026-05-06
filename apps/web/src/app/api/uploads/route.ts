@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@stackzio/db";
 import { auth } from "@/server/auth";
 import { ACTIVE_ORG_COOKIE } from "@/server/auth/guards";
 import { saveImage, type UploadKind } from "@/server/uploads/store";
 import { cookies } from "next/headers";
 import { logActivity } from "@/server/activity/log";
+import { tagUserOrgs } from "@/server/cache";
 
 const ALLOWED_KINDS: UploadKind[] = ["org-logo", "user-avatar", "project-doc"];
 
@@ -53,6 +55,14 @@ export async function POST(req: Request) {
         action: "logo_updated",
         metadata: { url: saved.url },
       });
+      // Bust topbar org-switcher cache for every member of this org so the
+      // new logo shows up immediately, not after the 60s tag TTL.
+      const memberIds = await prisma.organizationMember.findMany({
+        where: { organizationId: orgId },
+        select: { userId: true },
+      });
+      for (const m of memberIds) revalidateTag(tagUserOrgs(m.userId));
+      revalidatePath("/", "layout");
       return NextResponse.json(saved);
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 400 });
@@ -63,6 +73,9 @@ export async function POST(req: Request) {
     try {
       const saved = await saveImage({ file, kind, ownerId: session.user.id });
       await prisma.user.update({ where: { id: session.user.id }, data: { image: saved.url } });
+      // Refresh the (app) layout so the topbar avatar (from session.user.image)
+      // re-reads from the now-updated JWT.
+      revalidatePath("/", "layout");
       return NextResponse.json(saved);
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 400 });

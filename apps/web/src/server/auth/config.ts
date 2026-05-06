@@ -60,18 +60,21 @@ export const authConfig: NextAuthConfig = {
       }
 
       // Subsequent calls (refresh / every page load) — verify the user still
-      // exists in the DB. If they don't (e.g. we swapped databases, or the
-      // account was deleted), return null to invalidate the session and sign
-      // them out cleanly.
+      // exists in the DB and refresh the cached name/image/isSuperAdmin so
+      // profile updates show up everywhere without requiring a re-login.
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { id: true, email: true, isSuperAdmin: true },
+          select: { id: true, email: true, name: true, image: true, isSuperAdmin: true },
         });
         if (!dbUser) {
-          // Orphan JWT — invalidate.
+          // Orphan JWT (e.g. DB swap) — invalidate.
           return null as never;
         }
+        token.name = dbUser.name;
+        // next-auth stores the avatar URL on `picture` in the JWT and surfaces
+        // it as `session.user.image`.
+        token.picture = dbUser.image;
         // Auto-promote configured superadmins (idempotent).
         if (dbUser.email && isSuperadminEmail(dbUser.email) && !dbUser.isSuperAdmin) {
           await prisma.user

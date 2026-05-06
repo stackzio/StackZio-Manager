@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ export function ImageUpload({
   rounded = "lg",
   size = "lg",
 }: Props) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [preview, setPreview] = useState<string | null>(currentUrl);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +58,9 @@ export function ImageUpload({
       setPreview(json.url);
       onUploaded(json.url);
       toast.success("Uploaded");
+      // Refresh the route's server components so the topbar (avatar/org logo)
+      // re-reads the now-updated session and org data.
+      router.refresh();
     });
     e.currentTarget.value = "";
   }
