@@ -45,3 +45,4 @@ apps/web/test-results/
 # Uploads (dev)
 apps/web/public/uploads/*
 !apps/web/public/uploads/.gitkeep
+.vercel
