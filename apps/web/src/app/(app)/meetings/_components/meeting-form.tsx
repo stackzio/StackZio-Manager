@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -58,15 +58,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function MeetingForm({ mode, meetingId, clients, projects, members, initial }: Props) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [attendeeIds, setAttendeeIds] = useState<string[]>(initial?.attendeeIds ?? []);
   const [clientId, setClientId] = useState<string>(initial?.clientId ?? NONE);
   const [projectId, setProjectId] = useState<string>(initial?.projectId ?? NONE);
   const [locationKind, setLocationKind] = useState<string>(initial?.locationKind ?? "ONLINE");
   const [status, setStatus] = useState<string>(initial?.status ?? "SCHEDULED");
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input: UpsertMeetingInput = {
       title: String(fd.get("title") ?? "").trim(),
@@ -82,7 +83,8 @@ export function MeetingForm({ mode, meetingId, clients, projects, members, initi
       status: status as (typeof MEETING_STATUS)[number],
       attendeeIds,
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res =
         mode === "create"
           ? await createMeetingAction(input)
@@ -94,7 +96,9 @@ export function MeetingForm({ mode, meetingId, clients, projects, members, initi
       toast.success(mode === "create" ? "Meeting scheduled" : "Meeting updated");
       router.push(`/meetings/${res.meetingId}`);
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   const projectsForClient = clientId === NONE ? projects : projects;

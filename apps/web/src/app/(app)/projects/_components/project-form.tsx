@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   Briefcase,
   CalendarRange,
@@ -125,7 +125,7 @@ function AdminProjectForm({
   defaultCurrency,
 }: Omit<Props, "isAdmin">) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [memberIds, setMemberIds] = useState<string[]>(initial?.memberIds ?? []);
   const [category, setCategory] = useState<(typeof PROJECT_CATEGORY)[number]>(
     (initial?.category as (typeof PROJECT_CATEGORY)[number]) ?? "WEBSITE",
@@ -141,8 +141,9 @@ function AdminProjectForm({
   const [priceTotal, setPriceTotal] = useState<string>(String(initial?.priceTotal ?? ""));
   const isAdmin = true;
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input: UpsertProjectInput = {
       name: name.trim(),
@@ -158,7 +159,8 @@ function AdminProjectForm({
       progressPct,
       memberIds,
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res =
         mode === "create"
           ? await createProjectAction(input)
@@ -170,7 +172,9 @@ function AdminProjectForm({
       toast.success(mode === "create" ? "Project created" : "Project updated");
       router.push(`/projects/${res.projectId}`);
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   const selectedClient = clients.find((c) => c.id === clientId);
@@ -483,12 +487,13 @@ function MemberProjectEditForm({
   currency: string;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<(typeof PROJECT_STATUS)[number]>(currentStatus);
   const [progressPct, setProgressPct] = useState<number>(Number(initial.progressPct ?? 0));
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input: UpsertProjectInput = {
       name: (initial.name as string) ?? "",
@@ -505,7 +510,8 @@ function MemberProjectEditForm({
       progressPct,
       memberIds,
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res = await updateProjectAction(projectId, input);
       if (!res.ok) {
         toast.error(res.error);
@@ -514,7 +520,9 @@ function MemberProjectEditForm({
       toast.success("Saved");
       router.push(`/projects/${res.projectId}`);
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

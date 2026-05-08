@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,12 @@ interface Props {
 
 export function OrganizationForm({ organization }: Props) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>(organization.logoUrl ?? "");
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input = {
       name: String(fd.get("name") ?? "").trim(),
@@ -54,7 +55,8 @@ export function OrganizationForm({ organization }: Props) {
       defaultCurrency: String(fd.get("defaultCurrency") ?? "").trim().toUpperCase(),
       logoUrl: logoUrl,
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res = await updateOrganizationAction(input);
       if (!res.ok) {
         toast.error(res.error);
@@ -62,7 +64,9 @@ export function OrganizationForm({ organization }: Props) {
       }
       toast.success("Organization updated");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

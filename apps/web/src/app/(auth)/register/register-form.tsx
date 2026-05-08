@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,17 +13,19 @@ import { signupAction } from "@/server/auth/actions";
 export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const [showPwd, setShowPwd] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     setErrors({});
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get("name") ?? "").trim();
     const email = String(fd.get("email") ?? "").trim();
     const password = String(fd.get("password") ?? "");
-    start(async () => {
+    setPending(true);
+    try {
       const res = await signupAction({ name, email, password });
       if (!res.ok) {
         if (res.field && res.field !== "form") setErrors({ [res.field]: res.error });
@@ -39,7 +41,9 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       toast.success("Welcome to StackZio");
       router.push("/onboarding/create-organization");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

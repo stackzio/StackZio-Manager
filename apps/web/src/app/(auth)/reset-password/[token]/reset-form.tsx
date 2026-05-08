@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,12 @@ import { resetPasswordAction } from "@/server/password-reset/actions";
 
 export function ResetForm({ token }: { token: string }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [show, setShow] = useState(false);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const password = String(fd.get("password") ?? "");
     const confirm = String(fd.get("confirm") ?? "");
@@ -23,7 +24,8 @@ export function ResetForm({ token }: { token: string }) {
       toast.error("Passwords do not match");
       return;
     }
-    start(async () => {
+    setPending(true);
+    try {
       const res = await resetPasswordAction({ token, password });
       if (!res.ok) {
         toast.error(res.error);
@@ -31,7 +33,9 @@ export function ResetForm({ token }: { token: string }) {
       }
       toast.success("Password updated. Sign in with your new password.");
       router.push("/login");
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

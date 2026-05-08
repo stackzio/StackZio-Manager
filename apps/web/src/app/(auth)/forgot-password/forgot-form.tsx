@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,21 +9,25 @@ import { Label } from "@/components/ui/label";
 import { requestPasswordResetAction } from "@/server/password-reset/actions";
 
 export function ForgotPasswordForm() {
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") ?? "").trim();
-    start(async () => {
+    setPending(true);
+    try {
       const res = await requestPasswordResetAction({ email });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       setSent(true);
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   if (sent) {

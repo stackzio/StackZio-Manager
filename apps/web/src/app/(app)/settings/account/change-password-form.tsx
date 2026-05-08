@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { changePasswordAction } from "@/server/user/actions";
 
 export function ChangePasswordForm() {
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const form = e.currentTarget;
     const fd = new FormData(form);
     const input = {
@@ -21,7 +22,8 @@ export function ChangePasswordForm() {
       newPassword: String(fd.get("newPassword") ?? ""),
       confirmPassword: String(fd.get("confirmPassword") ?? ""),
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res = await changePasswordAction(input);
       if (!res.ok) {
         toast.error(res.error);
@@ -29,7 +31,9 @@ export function ChangePasswordForm() {
       }
       toast.success("Password updated");
       form.reset();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

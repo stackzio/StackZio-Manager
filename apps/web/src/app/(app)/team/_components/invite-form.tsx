@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Copy, Loader2, Mail, MailWarning, Send } from "lucide-react";
 import { toast } from "sonner";
 import type { OrgRole } from "@stackzio/db";
@@ -25,16 +25,18 @@ interface LastInvite {
 
 export function InviteForm({ canInviteOwner }: { canInviteOwner: boolean }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [role, setRole] = useState<OrgRole>("MEMBER");
   const [last, setLast] = useState<LastInvite | null>(null);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const form = e.currentTarget;
     const fd = new FormData(form);
     const email = String(fd.get("email") ?? "").trim();
-    start(async () => {
+    setPending(true);
+    try {
       const res = await inviteMemberAction({ email, role });
       if (!res.ok) {
         toast.error(res.error);
@@ -51,7 +53,9 @@ export function InviteForm({ canInviteOwner }: { canInviteOwner: boolean }) {
       form.reset();
       setRole("MEMBER");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   function copy() {

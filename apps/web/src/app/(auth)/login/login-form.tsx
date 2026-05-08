@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,16 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") ?? "/dashboard";
   const [showPwd, setShowPwd] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") ?? "").trim();
     const password = String(fd.get("password") ?? "");
-    start(async () => {
+    setPending(true);
+    try {
       const res = await signIn("credentials", { email, password, redirect: false });
       if (!res || res.error) {
         toast.error("Invalid email or password");
@@ -31,7 +33,9 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
       toast.success("Signed in");
       router.push(callbackUrl);
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

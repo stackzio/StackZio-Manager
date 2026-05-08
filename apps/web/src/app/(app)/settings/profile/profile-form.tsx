@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface Props {
 
 export function ProfileForm({ user }: Props) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>(user.image ?? "");
 
   const initials = (user.name ?? user.email)
@@ -27,14 +27,16 @@ export function ProfileForm({ user }: Props) {
     .map((s) => s[0]?.toUpperCase())
     .join("");
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input = {
       name: String(fd.get("name") ?? "").trim(),
       image: imageUrl,
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res = await updateProfileAction(input);
       if (!res.ok) {
         toast.error(res.error);
@@ -42,7 +44,9 @@ export function ProfileForm({ user }: Props) {
       }
       toast.success("Profile updated");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

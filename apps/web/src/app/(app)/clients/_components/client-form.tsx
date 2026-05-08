@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ interface Props {
 
 export function ClientForm({ mode, clientId, initial }: Props) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>(initial?.contacts ?? []);
 
   function addContact() {
@@ -41,8 +41,9 @@ export function ClientForm({ mode, clientId, initial }: Props) {
     setContacts((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input: UpsertClientInput = {
       name: String(fd.get("name") ?? "").trim(),
@@ -67,7 +68,8 @@ export function ClientForm({ mode, clientId, initial }: Props) {
           phone: c.phone?.trim() ?? "",
         })),
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res =
         mode === "create"
           ? await createClientAction(input)
@@ -79,7 +81,9 @@ export function ClientForm({ mode, clientId, initial }: Props) {
       toast.success(mode === "create" ? "Client created" : "Client updated");
       router.push(`/clients/${res.clientId}`);
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

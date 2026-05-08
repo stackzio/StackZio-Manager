@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState } from "react";
 import { Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { createOrganizationAction } from "@/server/organization/actions";
 
 export function CreateOrgForm() {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const fd = new FormData(e.currentTarget);
     const input = {
       name: String(fd.get("name") ?? "").trim(),
@@ -26,7 +27,8 @@ export function CreateOrgForm() {
       website: String(fd.get("website") ?? "").trim(),
       defaultCurrency: String(fd.get("defaultCurrency") ?? "INR").trim().toUpperCase(),
     };
-    start(async () => {
+    setPending(true);
+    try {
       const res = await createOrganizationAction(input);
       if (!res.ok) {
         toast.error(res.error);
@@ -35,7 +37,9 @@ export function CreateOrgForm() {
       toast.success(`${input.name} is ready to go`);
       router.push("/dashboard");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

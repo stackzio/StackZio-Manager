@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState } from "react";
 import { Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,12 @@ import { switchOrganizationAction } from "@/server/organization/actions";
 
 export function AcceptInviteButton({ token, disabled }: { token: string; disabled?: boolean }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function accept() {
-    start(async () => {
+  async function accept() {
+    if (pending) return;
+    setPending(true);
+    try {
       const res = await acceptInviteAction(token);
       if (!res.ok) {
         toast.error(res.error);
@@ -24,7 +26,9 @@ export function AcceptInviteButton({ token, disabled }: { token: string; disable
       toast.success("You're in");
       router.push("/dashboard");
       router.refresh();
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
