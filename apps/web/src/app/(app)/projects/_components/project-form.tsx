@@ -86,6 +86,44 @@ const STATUS_OPTIONS: Array<{ value: (typeof PROJECT_STATUS)[number]; label: str
 ];
 
 export function ProjectForm({ mode, projectId, clients, members, initial, defaultCurrency, isAdmin }: Props) {
+  // Members get a tight, focused edit form: status, description, progress,
+  // dates only. No client, no owner, no money, no team — never rendered, so
+  // the values can't be inspected via DevTools either.
+  if (!isAdmin && mode === "edit") {
+    return (
+      <MemberProjectEditForm
+        projectId={projectId!}
+        initial={initial!}
+        currentStatus={(initial?.status as (typeof PROJECT_STATUS)[number]) ?? "IN_PROGRESS"}
+        clientId={(initial?.clientId as string) ?? ""}
+        ownerId={(initial?.ownerId as string) ?? ""}
+        category={(initial?.category as (typeof PROJECT_CATEGORY)[number]) ?? "OTHER"}
+        memberIds={(initial?.memberIds as string[] | undefined) ?? []}
+        priceTotal={Number(initial?.priceTotal ?? 0)}
+        currency={(initial?.currency as string) ?? defaultCurrency}
+      />
+    );
+  }
+  return (
+    <AdminProjectForm
+      mode={mode}
+      projectId={projectId}
+      clients={clients}
+      members={members}
+      initial={initial}
+      defaultCurrency={defaultCurrency}
+    />
+  );
+}
+
+function AdminProjectForm({
+  mode,
+  projectId,
+  clients,
+  members,
+  initial,
+  defaultCurrency,
+}: Omit<Props, "isAdmin">) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [memberIds, setMemberIds] = useState<string[]>(initial?.memberIds ?? []);
@@ -101,6 +139,7 @@ export function ProjectForm({ mode, projectId, clients, members, initial, defaul
   const [name, setName] = useState<string>(initial?.name ?? "");
   const [currency, setCurrency] = useState<string>((initial?.currency as string) ?? defaultCurrency);
   const [priceTotal, setPriceTotal] = useState<string>(String(initial?.priceTotal ?? ""));
+  const isAdmin = true;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -171,10 +210,12 @@ export function ProjectForm({ mode, projectId, clients, members, initial, defaul
                   for {selectedClient.name}
                 </span>
               ) : null}
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 backdrop-blur">
-                <CircleDollarSign className="size-3" />
-                {currency} {priceTotal || "0"}
-              </span>
+              {isAdmin ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 backdrop-blur">
+                  <CircleDollarSign className="size-3" />
+                  {currency} {priceTotal || "0"}
+                </span>
+              ) : null}
             </div>
           </div>
         </CardContent>
@@ -413,5 +454,171 @@ function Field({
       </Label>
       {children}
     </div>
+  );
+}
+
+// Compact edit form for non-admin team members. Server action gates which
+// fields actually persist (only status, description, progress, dates,
+// category). Client / owner / price / currency / members are passed
+// through unchanged from the loaded values — never rendered to the DOM.
+function MemberProjectEditForm({
+  projectId,
+  initial,
+  currentStatus,
+  clientId,
+  ownerId,
+  category,
+  memberIds,
+  priceTotal,
+  currency,
+}: {
+  projectId: string;
+  initial: NonNullable<Props["initial"]>;
+  currentStatus: (typeof PROJECT_STATUS)[number];
+  clientId: string;
+  ownerId: string;
+  category: (typeof PROJECT_CATEGORY)[number];
+  memberIds: string[];
+  priceTotal: number;
+  currency: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [status, setStatus] = useState<(typeof PROJECT_STATUS)[number]>(currentStatus);
+  const [progressPct, setProgressPct] = useState<number>(Number(initial.progressPct ?? 0));
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const input: UpsertProjectInput = {
+      name: (initial.name as string) ?? "",
+      description: String(fd.get("description") ?? "").trim(),
+      // pass-through values — server enforces what members may actually change
+      clientId,
+      ownerId,
+      category,
+      status,
+      priceTotal,
+      currency,
+      startDate: String(fd.get("startDate") ?? ""),
+      deadline: String(fd.get("deadline") ?? ""),
+      progressPct,
+      memberIds,
+    };
+    start(async () => {
+      const res = await updateProjectAction(projectId, input);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Saved");
+      router.push(`/projects/${res.projectId}`);
+      router.refresh();
+    });
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="rounded-lg bg-primary/10 p-2 text-primary">
+              <Layers className="size-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold leading-tight">Update your work</h2>
+              <p className="text-xs text-muted-foreground">
+                You can change status, progress, dates and notes. Other fields are managed by an admin.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <div className="flex flex-wrap gap-2">
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setStatus(s.value)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-all hover:border-primary/40",
+                      status === s.value ? cn("border", s.tone) : "text-muted-foreground",
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Field label={`Progress · ${progressPct}%`} id="progressPct">
+              <div className="space-y-2">
+                <input
+                  id="progressPct"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={progressPct}
+                  onChange={(e) => setProgressPct(Number(e.target.value))}
+                  className="w-full accent-violet-600"
+                />
+                <Progress value={progressPct} />
+              </div>
+            </Field>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Start date" id="startDate">
+                <div className="relative">
+                  <CalendarRange className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    defaultValue={initial.startDateISO ?? ""}
+                    className="pl-8"
+                  />
+                </div>
+              </Field>
+              <Field label="Deadline" id="deadline">
+                <div className="relative">
+                  <CalendarRange className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="deadline"
+                    name="deadline"
+                    type="date"
+                    defaultValue={initial.deadlineISO ?? ""}
+                    className="pl-8"
+                  />
+                </div>
+              </Field>
+            </div>
+
+            <Field label="Description / notes" id="description">
+              <Textarea
+                id="description"
+                name="description"
+                defaultValue={(initial.description as string) ?? ""}
+                maxLength={2000}
+                placeholder="What's happening on this project?"
+                className="min-h-[110px]"
+              />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="gradient" disabled={pending}>
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {pending ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
+    </form>
   );
 }

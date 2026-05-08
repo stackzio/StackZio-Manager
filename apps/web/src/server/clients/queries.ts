@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@stackzio/db";
 import type { Prisma } from "@stackzio/db";
-import { requireOrg } from "@/server/auth/guards";
+import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
 
 export interface ClientListParams {
   q?: string;
@@ -10,8 +11,18 @@ export interface ClientListParams {
   pageSize?: number;
 }
 
+/**
+ * MEMBER role doesn't see clients at all — they live behind the same gate as
+ * financials. Use canSeeFinancials() for both. Server-side redirect so direct
+ * URL hits also bounce back to /dashboard.
+ */
+function gateClientAccess(role: "OWNER" | "ADMIN" | "MEMBER") {
+  if (!canSeeFinancials(role)) redirect("/dashboard");
+}
+
 export async function listClients(params: ClientListParams = {}) {
-  const { org } = await requireOrg();
+  const { org, role } = await requireOrg();
+  gateClientAccess(role);
   const { q, sort = "name", dir = "asc", page = 1, pageSize = 25 } = params;
 
   const where: Prisma.ClientWhereInput = {
@@ -45,7 +56,8 @@ export async function listClients(params: ClientListParams = {}) {
 }
 
 export async function getClient(id: string) {
-  const { org } = await requireOrg();
+  const { org, role } = await requireOrg();
+  gateClientAccess(role);
   return prisma.client.findFirst({
     where: { id, organizationId: org.id },
     include: {

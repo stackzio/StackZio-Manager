@@ -260,7 +260,12 @@ export async function setTaskStatusAction(taskId: string, status: "TODO" | "DOIN
   const isAdmin = ctx.role === "OWNER" || ctx.role === "ADMIN";
   const isAssigned =
     task.project.ownerId === ctx.user.id || task.project.members.some((m) => m.userId === ctx.user.id);
-  if (!isAdmin && !isAssigned) return { ok: false as const, error: "Forbidden" };
+  // Anyone explicitly assigned to the task can move its status — even if
+  // they're not on the project's member list (admins can assign across).
+  const isTaskAssignee = task.assigneeId === ctx.user.id;
+  if (!isAdmin && !isAssigned && !isTaskAssignee) {
+    return { ok: false as const, error: "Forbidden" };
+  }
 
   await prisma.task.update({
     where: { id: taskId },
@@ -278,6 +283,8 @@ export async function setTaskStatusAction(taskId: string, status: "TODO" | "DOIN
     metadata: { projectId: task.projectId },
   });
   revalidatePath(`/projects/${task.projectId}`);
+  revalidatePath("/my-tasks");
+  revalidatePath("/dashboard");
   return { ok: true as const };
 }
 

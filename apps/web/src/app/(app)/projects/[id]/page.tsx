@@ -31,12 +31,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const canEditNonFinancial = isAdmin || isAssigned;
   const showFinancials = canSeeFinancials(role);
   const docsManager = canManageDocs(role);
+  // Members don't see client info anywhere — same admin-only signal as financials.
+  const showClient = showFinancials;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={project.name}
-        description={project.client?.name ?? undefined}
+        description={showClient ? project.client?.name ?? undefined : undefined}
         breadcrumbs={
           <Link href="/projects" className="inline-flex items-center gap-1 hover:text-foreground">
             <ChevronLeft className="size-3" /> Projects
@@ -84,7 +86,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </TabsList>
 
         <TabsContent value="overview">
-          <ProjectOverview project={project} showFinancials={showFinancials} />
+          <ProjectOverview project={project} showFinancials={showFinancials} showClient={showClient} />
         </TabsContent>
 
         <TabsContent value="updates">

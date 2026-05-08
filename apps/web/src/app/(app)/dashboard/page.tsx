@@ -226,8 +226,11 @@ async function MemberDashboard({ orgName, firstName }: { orgName: string; firstN
               </CardTitle>
               <CardDescription>Sorted by due date — nearest first.</CardDescription>
             </div>
-            <Link href="/projects" className="text-xs font-medium text-primary hover:underline">
-              View projects
+            <Link
+              href="/my-tasks"
+              className="rounded-full bg-brand-gradient px-3 py-1 text-xs font-semibold text-white shadow hover:brightness-110"
+            >
+              Open task board →
             </Link>
           </CardHeader>
           <CardContent>

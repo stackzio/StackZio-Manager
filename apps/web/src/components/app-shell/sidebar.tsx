@@ -10,6 +10,7 @@ import {
   CreditCard,
   FolderKanban,
   LayoutDashboard,
+  ListChecks,
   Settings,
   Users,
   UserCog,
@@ -25,9 +26,13 @@ const NAV: Array<{
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  memberOnly?: boolean;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clients", icon: Users },
+  // Members get a dedicated task hub right under the dashboard.
+  { href: "/my-tasks", label: "My tasks", icon: ListChecks, memberOnly: true },
+  // Clients are admin-only — members never see client info.
+  { href: "/clients", label: "Clients", icon: Users, adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   // Payments / revenue is admin-only — members never see money figures.
   { href: "/payments", label: "Payments", icon: CreditCard, adminOnly: true },
@@ -40,7 +45,11 @@ export function Sidebar({ role }: { role: OrgRole }) {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
   const isAdmin = role === "OWNER" || role === "ADMIN";
-  const items = NAV.filter((i) => !i.adminOnly || isAdmin);
+  const items = NAV.filter((i) => {
+    if (i.adminOnly && !isAdmin) return false;
+    if (i.memberOnly && isAdmin) return false;
+    return true;
+  });
 
   return (
     <TooltipProvider delayDuration={120}>

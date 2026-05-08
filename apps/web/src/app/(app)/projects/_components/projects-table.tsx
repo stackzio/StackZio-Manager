@@ -28,21 +28,25 @@ export interface ProjectRow {
   _count: { tasks: number; members: number };
 }
 
-const NAME_COL: ColumnDef<ProjectRow> = {
-  id: "name",
-  header: "Project",
-  accessorKey: "name",
-  meta: { sortable: true },
-  cell: ({ row }) => {
-    const p = row.original;
-    return (
-      <Link href={`/projects/${p.id}`} className="block hover:text-primary">
-        <p className="truncate font-medium">{p.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{p.client?.name ?? "—"}</p>
-      </Link>
-    );
-  },
-};
+function makeNameCol(showClient: boolean): ColumnDef<ProjectRow> {
+  return {
+    id: "name",
+    header: "Project",
+    accessorKey: "name",
+    meta: { sortable: true },
+    cell: ({ row }) => {
+      const p = row.original;
+      return (
+        <Link href={`/projects/${p.id}`} className="block hover:text-primary">
+          <p className="truncate font-medium">{p.name}</p>
+          {showClient ? (
+            <p className="truncate text-xs text-muted-foreground">{p.client?.name ?? "—"}</p>
+          ) : null}
+        </Link>
+      );
+    },
+  };
+}
 
 const STATUS_COL: ColumnDef<ProjectRow> = {
   id: "status",
@@ -149,8 +153,8 @@ export function ProjectsTable({
   const columns = useMemo<ColumnDef<ProjectRow>[]>(
     () =>
       showFinancials
-        ? [NAME_COL, STATUS_COL, OWNER_COL, PROGRESS_COL, MONEY_COL, DEADLINE_COL]
-        : [NAME_COL, STATUS_COL, OWNER_COL, PROGRESS_COL, TASKS_COL, DEADLINE_COL],
+        ? [makeNameCol(true), STATUS_COL, OWNER_COL, PROGRESS_COL, MONEY_COL, DEADLINE_COL]
+        : [makeNameCol(false), STATUS_COL, OWNER_COL, PROGRESS_COL, TASKS_COL, DEADLINE_COL],
     [showFinancials],
   );
   return (
