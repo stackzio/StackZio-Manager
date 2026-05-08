@@ -10,15 +10,16 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <div className="relative grid min-h-screen lg:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex">
-        <Image
-          src="/brand/wordmark-white.png"
-          alt="StackZio"
-          width={1679}
-          height={937}
-          priority
-          unoptimized
-          className="h-9 w-auto"
-        />
+        <div>
+          <Image
+            src="/brand/wordmark-white.png"
+            alt="StackZio"
+            width={140}
+            height={78}
+            priority
+            unoptimized
+          />
+        </div>
         <div className="relative z-10 space-y-4">
           <p className="text-balance text-3xl font-semibold leading-tight">
             One workspace for every agency you run.

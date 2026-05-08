@@ -62,27 +62,38 @@ export const authConfig: NextAuthConfig = {
       // Subsequent calls (refresh / every page load) — verify the user still
       // exists in the DB and refresh the cached name/image/isSuperAdmin so
       // profile updates show up everywhere without requiring a re-login.
+      // If the DB lookup fails (transient connection error, pool exhaustion,
+      // serverless cold-start race), DON'T crash the page — fall back to the
+      // existing token data.
       if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { id: true, email: true, name: true, image: true, isSuperAdmin: true },
-        });
-        if (!dbUser) {
-          // Orphan JWT (e.g. DB swap) — invalidate.
-          return null as never;
-        }
-        token.name = dbUser.name;
-        // next-auth stores the avatar URL on `picture` in the JWT and surfaces
-        // it as `session.user.image`.
-        token.picture = dbUser.image;
-        // Auto-promote configured superadmins (idempotent).
-        if (dbUser.email && isSuperadminEmail(dbUser.email) && !dbUser.isSuperAdmin) {
-          await prisma.user
-            .update({ where: { id: dbUser.id }, data: { isSuperAdmin: true } })
-            .catch(() => null);
-          token.isSuperAdmin = true;
-        } else {
-          token.isSuperAdmin = dbUser.isSuperAdmin;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { id: true, email: true, name: true, image: true, isSuperAdmin: true },
+          });
+          if (!dbUser) {
+            // Orphan JWT (e.g. DB swap) — invalidate so user signs back in.
+            return null as never;
+          }
+          token.name = dbUser.name;
+          // next-auth stores the avatar URL on `picture` in the JWT and
+          // surfaces it as `session.user.image`.
+          token.picture = dbUser.image;
+          // Auto-promote configured superadmins (idempotent).
+          if (dbUser.email && isSuperadminEmail(dbUser.email) && !dbUser.isSuperAdmin) {
+            await prisma.user
+              .update({ where: { id: dbUser.id }, data: { isSuperAdmin: true } })
+              .catch(() => null);
+            token.isSuperAdmin = true;
+          } else {
+            token.isSuperAdmin = dbUser.isSuperAdmin;
+          }
+        } catch (e) {
+          console.error(
+            "[auth.jwt] DB refresh failed — keeping existing token:",
+            e instanceof Error ? e.message : e,
+          );
+          // Keep the token as-is so the request still completes.
         }
       }
 
