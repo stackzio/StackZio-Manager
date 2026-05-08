@@ -6,6 +6,16 @@ import { auth } from "./index";
 
 export const ACTIVE_ORG_COOKIE = "stackzio_active_org";
 
+/** Can this role see revenue / outstanding / payment / price data? */
+export function canSeeFinancials(role: OrgRole): boolean {
+  return role === "OWNER" || role === "ADMIN";
+}
+
+/** Can this role upload / link / delete project documents? */
+export function canManageDocs(role: OrgRole): boolean {
+  return role === "OWNER" || role === "ADMIN";
+}
+
 export class AuthError extends Error {
   constructor(
     message: string,

@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProjectsTable } from "./_components/projects-table";
 import { ProjectsToolbar } from "./_components/projects-toolbar";
 import { Pagination } from "../clients/_components/pagination";
-import { requireOrg } from "@/server/auth/guards";
+import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -20,6 +20,7 @@ export default async function ProjectsPage({
   const sp = await searchParams;
   const { role } = await requireOrg();
   const isAdmin = role === "OWNER" || role === "ADMIN";
+  const showFinancials = canSeeFinancials(role);
 
   const result = await listProjects({
     q: typeof sp.q === "string" ? sp.q : undefined,
@@ -36,7 +37,11 @@ export default async function ProjectsPage({
     <div className="space-y-4">
       <PageHeader
         title="Projects"
-        description="Track every engagement — price, progress, payments, team."
+        description={
+          showFinancials
+            ? "Track every engagement — price, progress, payments, team."
+            : "Your assigned projects — status, progress, tasks, team."
+        }
         actions={
           isAdmin ? (
             <Button asChild variant="gradient">
@@ -57,6 +62,7 @@ export default async function ProjectsPage({
         rows={result.items}
         sort={result.sort}
         dir={result.dir}
+        showFinancials={showFinancials}
         emptyState={
           <EmptyState
             icon={<FolderKanban className="size-5" />}

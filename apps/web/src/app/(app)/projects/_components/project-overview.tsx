@@ -30,7 +30,14 @@ interface OverviewProject {
   updatedAt: Date;
 }
 
-export function ProjectOverview({ project }: { project: OverviewProject }) {
+export function ProjectOverview({
+  project,
+  showFinancials,
+}: {
+  project: OverviewProject;
+  /** Show price/paid/outstanding cards. Hidden for MEMBER role. */
+  showFinancials: boolean;
+}) {
   const cur = project.currency as never;
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -59,25 +66,27 @@ export function ProjectOverview({ project }: { project: OverviewProject }) {
             <Progress value={project.progressPct} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat
-              icon={<IndianRupee className="size-4" />}
-              label="Price total"
-              value={formatMoney(Number(project.priceTotal), cur)}
-            />
-            <Stat
-              icon={<Wallet className="size-4" />}
-              label="Paid"
-              value={formatMoney(project.paid, cur)}
-              accent="success"
-            />
-            <Stat
-              icon={<Wallet className="size-4" />}
-              label="Outstanding"
-              value={formatMoney(project.outstanding, cur)}
-              accent={project.outstanding > 0 ? "warning" : "success"}
-            />
-          </div>
+          {showFinancials ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Stat
+                icon={<IndianRupee className="size-4" />}
+                label="Price total"
+                value={formatMoney(Number(project.priceTotal), cur)}
+              />
+              <Stat
+                icon={<Wallet className="size-4" />}
+                label="Paid"
+                value={formatMoney(project.paid, cur)}
+                accent="success"
+              />
+              <Stat
+                icon={<Wallet className="size-4" />}
+                label="Outstanding"
+                value={formatMoney(project.outstanding, cur)}
+                accent={project.outstanding > 0 ? "warning" : "success"}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -93,10 +93,20 @@ export async function POST(req: Request) {
       select: { id: true },
     });
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    // Only Owners / Admins can upload project docs.
     const member = await prisma.organizationMember.findFirst({
-      where: { organizationId: orgId, userId: session.user.id },
+      where: {
+        organizationId: orgId,
+        userId: session.user.id,
+        role: { in: ["OWNER", "ADMIN"] },
+      },
     });
-    if (!member) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!member) {
+      return NextResponse.json(
+        { error: "Only admins can upload project documents" },
+        { status: 403 },
+      );
+    }
     try {
       const saved = await saveImage({ file, kind, ownerId: project.id });
       const docKind = saved.contentType.startsWith("image/") ? "IMAGE" : "FILE";

@@ -29,7 +29,8 @@ const NAV: Array<{
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/payments", label: "Payments", icon: CreditCard },
+  // Payments / revenue is admin-only — members never see money figures.
+  { href: "/payments", label: "Payments", icon: CreditCard, adminOnly: true },
   { href: "/meetings", label: "Meetings", icon: CalendarClock },
   { href: "/team", label: "Team", icon: UserCog, adminOnly: true },
   { href: "/organization", label: "Organization", icon: Building2, adminOnly: true },

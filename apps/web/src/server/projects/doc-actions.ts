@@ -30,9 +30,9 @@ async function ensureProjectAccess(projectId: string) {
     include: { members: { select: { userId: true } } },
   });
   if (!project) throw new Error("Project not found");
+  // Only Owners / Admins manage docs. Members are view-only.
   const isAdmin = ctx.role === "OWNER" || ctx.role === "ADMIN";
-  const isAssigned = project.ownerId === ctx.user.id || project.members.some((m) => m.userId === ctx.user.id);
-  if (!isAdmin && !isAssigned) throw new Error("Forbidden");
+  if (!isAdmin) throw new Error("Only admins can manage project documents");
   return { ctx, project };
 }
 
@@ -77,10 +77,9 @@ export async function deleteProjectDocAction(docId: string) {
     include: { project: { include: { members: { select: { userId: true } } } } },
   });
   if (!doc) return { ok: false as const, error: "Doc not found" };
+  // Only Owners / Admins manage docs.
   const isAdmin = ctx.role === "OWNER" || ctx.role === "ADMIN";
-  const isAssigned =
-    doc.project.ownerId === ctx.user.id || doc.project.members.some((m) => m.userId === ctx.user.id);
-  if (!isAdmin && !isAssigned) return { ok: false as const, error: "Forbidden" };
+  if (!isAdmin) return { ok: false as const, error: "Only admins can manage project documents" };
 
   await prisma.projectDoc.delete({ where: { id: docId } });
   await logActivity({

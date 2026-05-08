@@ -187,6 +187,16 @@ export function DocsTab({ projectId, docs, canEdit }: Props) {
 
   return (
     <div className="space-y-6">
+      {!canEdit ? (
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+            <Link2 className="size-4 text-primary" />
+            <span>
+              You can browse all docs and links shared on this project. Only Owners and Admins can add or remove them.
+            </span>
+          </CardContent>
+        </Card>
+      ) : null}
       {canEdit ? (
         <Card>
           <CardHeader>

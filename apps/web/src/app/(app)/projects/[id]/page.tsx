@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/page-header";
 import { getProject, listOrgUsersForAssignment } from "@/server/projects/queries";
-import { requireOrg } from "@/server/auth/guards";
+import { canManageDocs, canSeeFinancials, requireOrg } from "@/server/auth/guards";
 import { ProjectOverview } from "../_components/project-overview";
 import { TasksTab } from "../_components/tasks-tab";
 import { PaymentsTab } from "../_components/payments-tab";
@@ -29,6 +29,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const isAssigned =
     project.ownerId === user.id || project.members.some((m) => m.userId === user.id);
   const canEditNonFinancial = isAdmin || isAssigned;
+  const showFinancials = canSeeFinancials(role);
+  const docsManager = canManageDocs(role);
 
   return (
     <div className="space-y-6">
@@ -42,12 +44,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         }
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">{project.currency}</Badge>
-            <Button asChild variant="outline">
-              <Link href={`/projects/${project.id}/statement`}>
-                <FileSpreadsheet className="size-4" /> Statement
-              </Link>
-            </Button>
+            {showFinancials ? <Badge variant="secondary">{project.currency}</Badge> : null}
+            {showFinancials ? (
+              <Button asChild variant="outline">
+                <Link href={`/projects/${project.id}/statement`}>
+                  <FileSpreadsheet className="size-4" /> Statement
+                </Link>
+              </Button>
+            ) : null}
             {isAdmin ? (
               <Button asChild variant="gradient">
                 <Link href={`/projects/${project.id}?tab=payments`}>
@@ -72,13 +76,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="updates">Updates ({project.updates.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({project.tasks.length})</TabsTrigger>
-          <TabsTrigger value="payments">Payments ({project.payments.length})</TabsTrigger>
+          {showFinancials ? (
+            <TabsTrigger value="payments">Payments ({project.payments.length})</TabsTrigger>
+          ) : null}
           <TabsTrigger value="team">Team ({project.members.length})</TabsTrigger>
           <TabsTrigger value="docs">Docs ({project.docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <ProjectOverview project={project} />
+          <ProjectOverview project={project} showFinancials={showFinancials} />
         </TabsContent>
 
         <TabsContent value="updates">
@@ -107,17 +113,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           />
         </TabsContent>
 
-        <TabsContent value="payments">
-          <PaymentsTab
-            projectId={project.id}
-            payments={project.payments}
-            priceTotal={Number(project.priceTotal)}
-            paid={project.paid}
-            outstanding={project.outstanding}
-            currency={project.currency}
-            canEdit={isAdmin}
-          />
-        </TabsContent>
+        {showFinancials ? (
+          <TabsContent value="payments">
+            <PaymentsTab
+              projectId={project.id}
+              payments={project.payments}
+              priceTotal={Number(project.priceTotal)}
+              paid={project.paid}
+              outstanding={project.outstanding}
+              currency={project.currency}
+              canEdit={isAdmin}
+            />
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="team">
           <TeamTab
@@ -143,7 +151,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </TabsContent>
 
         <TabsContent value="docs">
-          <DocsTab projectId={project.id} docs={project.docs} canEdit={canEditNonFinancial} />
+          <DocsTab projectId={project.id} docs={project.docs} canEdit={docsManager} />
         </TabsContent>
       </Tabs>
     </div>

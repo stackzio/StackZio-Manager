@@ -50,10 +50,10 @@ export function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
     { group: "Go to", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, shortcut: "G D" },
     { group: "Go to", label: "Clients", href: "/clients", icon: Users, shortcut: "G C" },
     { group: "Go to", label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "G P" },
-    { group: "Go to", label: "Payments", href: "/payments", icon: CreditCard, shortcut: "G $" },
     { group: "Go to", label: "Meetings", href: "/meetings", icon: CalendarClock, shortcut: "G M" },
     ...(isAdmin
       ? [
+          { group: "Go to", label: "Payments", href: "/payments", icon: CreditCard, shortcut: "G $" } as Item,
           { group: "Go to", label: "Team", href: "/team", icon: UserCog },
           { group: "Go to", label: "Organization", href: "/organization", icon: Building2 },
         ]
