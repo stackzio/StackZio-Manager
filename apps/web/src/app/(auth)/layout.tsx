@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { Logo } from "@/components/brand/logo";
@@ -9,7 +10,15 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <div className="relative grid min-h-screen lg:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex">
-        <Logo showWordmark className="text-white [&_span]:text-white [&_.text-gradient-brand]:text-white [&_.text-gradient-brand]:bg-clip-border" />
+        <Image
+          src="/brand/wordmark-white.png"
+          alt="StackZio"
+          width={1679}
+          height={937}
+          priority
+          unoptimized
+          className="h-9 w-auto"
+        />
         <div className="relative z-10 space-y-4">
           <p className="text-balance text-3xl font-semibold leading-tight">
             One workspace for every agency you run.
