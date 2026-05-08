@@ -72,6 +72,33 @@ const TONE: Record<NotificationKind, string> = {
   GENERIC: "text-primary bg-primary/10",
 };
 
+/** Vibrant gradient stripe per kind — used on the toast accent bar. */
+const ACCENT_GRADIENT: Record<NotificationKind, string> = {
+  MEETING_TOMORROW: "from-violet-500 via-fuchsia-500 to-pink-500",
+  MEETING_SOON: "from-amber-500 via-orange-500 to-pink-500",
+  MEETING_STARTED: "from-amber-500 via-orange-500 to-rose-500",
+  PROJECT_DEADLINE_NEAR: "from-amber-500 via-orange-500 to-rose-500",
+  PROJECT_OVERDUE: "from-rose-500 via-red-500 to-orange-500",
+  PAYMENT_RECORDED: "from-emerald-500 via-teal-500 to-cyan-500",
+  MEMBER_JOINED: "from-violet-500 via-indigo-500 to-blue-500",
+  TASK_DUE_SOON: "from-amber-500 via-orange-500 to-pink-500",
+  TASK_OVERDUE: "from-rose-500 via-red-500 to-orange-500",
+  GENERIC: "from-violet-500 via-fuchsia-500 to-pink-500",
+};
+
+const KIND_LABEL: Record<NotificationKind, string> = {
+  MEETING_TOMORROW: "Meeting tomorrow",
+  MEETING_SOON: "Meeting soon",
+  MEETING_STARTED: "Meeting started",
+  PROJECT_DEADLINE_NEAR: "Deadline near",
+  PROJECT_OVERDUE: "Overdue",
+  PAYMENT_RECORDED: "Payment received",
+  MEMBER_JOINED: "Member joined",
+  TASK_DUE_SOON: "Task due",
+  TASK_OVERDUE: "Task overdue",
+  GENERIC: "Update",
+};
+
 const POLL_INTERVAL_MS = 15_000;
 const SOUND_PREF_KEY = "stackzio:notif-sound";
 
@@ -180,25 +207,32 @@ export function NotificationBell({ initialUnread, initialItems }: Props) {
       setPulse(true);
       setTimeout(() => setPulse(false), 1200);
       if (soundOn) playDing();
-      // Show a toast for the freshest one with a CTA if linkable.
+      // Show a richly themed toast for the freshest one — and a stack-count
+      // hint if multiple arrived at once.
       const top = newOnes[0]!;
-      toast(top.title, {
-        description: top.body ?? undefined,
-        action: top.link
-          ? {
-              label: "Open",
-              onClick: () => {
-                window.location.href = top.link!;
-              },
-            }
-          : undefined,
-        duration: 6000,
-      });
+      const extra = newOnes.length - 1;
+      toast.custom(
+        (id) => (
+          <NotificationToast
+            toastId={id}
+            item={top}
+            extraCount={extra}
+            onMarkRead={() => {
+              if (!top.readAt) markOneRef.current?.(top.id);
+            }}
+          />
+        ),
+        { duration: 7000 },
+      );
       // Cross-tab popup via Browser Notification API.
       newOnes.forEach(fireBrowserNotification);
     },
     [soundOn, fireBrowserNotification],
   );
+
+  // Keep a ref to markOne so the toast can call it without re-rendering on
+  // every items change (the toast is a fire-and-forget JSX subtree).
+  const markOneRef = useRef<((id: string) => void) | null>(null);
 
   const fetchAndDiff = useCallback(
     async (opts: { sweep?: boolean; silent?: boolean } = {}) => {
@@ -297,6 +331,10 @@ export function NotificationBell({ initialUnread, initialItems }: Props) {
     });
     void markNotificationReadAction(id).catch(() => {});
   }
+  // Expose latest markOne to fire-and-forget toast subtrees.
+  useEffect(() => {
+    markOneRef.current = markOne;
+  });
 
   function dismiss(id: string) {
     const wasUnread = items.find((n) => n.id === id)?.readAt == null;
@@ -483,5 +521,160 @@ export function NotificationBell({ initialUnread, initialItems }: Props) {
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * Vibrant, themed pop-up shown when a new notification arrives.
+ * Uses a colored gradient stripe + kind chip + branded CTA so it
+ * actually feels part of the product instead of a generic toast.
+ */
+function NotificationToast({
+  toastId,
+  item,
+  extraCount,
+  onMarkRead,
+}: {
+  toastId: string | number;
+  item: NotificationItem;
+  extraCount: number;
+  onMarkRead: () => void;
+}) {
+  const Icon = ICON[item.kind] ?? Sparkles;
+  const stripe = ACCENT_GRADIENT[item.kind] ?? ACCENT_GRADIENT.GENERIC;
+  const tone = TONE[item.kind] ?? "text-primary bg-primary/10";
+  const kindLabel = KIND_LABEL[item.kind] ?? "Update";
+
+  function close() {
+    toast.dismiss(toastId);
+  }
+  function open() {
+    onMarkRead();
+    if (item.link) window.location.href = item.link;
+    close();
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 360, damping: 28 }}
+      className={cn(
+        "pointer-events-auto relative w-[360px] overflow-hidden rounded-2xl border bg-background/95 shadow-2xl backdrop-blur",
+        "ring-1 ring-black/5 dark:ring-white/10",
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      {/* Animated gradient stripe */}
+      <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", stripe)} />
+      {/* Subtle gradient glow behind icon */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute -left-10 -top-10 size-32 rounded-full bg-gradient-to-br opacity-20 blur-2xl",
+          stripe,
+        )}
+      />
+
+      <div className="relative flex gap-3 p-3.5">
+        <div className="relative shrink-0">
+          <span
+            className={cn(
+              "inline-flex size-10 items-center justify-center rounded-xl",
+              tone,
+            )}
+          >
+            <Icon className="size-5" />
+          </span>
+          {/* Live ping dot */}
+          <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5">
+            <span
+              className={cn(
+                "absolute inline-flex h-full w-full animate-ping rounded-full bg-gradient-to-br opacity-75",
+                stripe,
+              )}
+            />
+            <span
+              className={cn(
+                "relative inline-flex size-2.5 rounded-full bg-gradient-to-br",
+                stripe,
+              )}
+            />
+          </span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "rounded-full bg-gradient-to-r px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm",
+                stripe,
+              )}
+            >
+              {kindLabel}
+            </span>
+            <span className="truncate text-[10px] text-muted-foreground">just now</span>
+            {extraCount > 0 ? (
+              <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                +{extraCount} more
+              </span>
+            ) : null}
+          </div>
+
+          <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">
+            {item.title}
+          </p>
+          {item.body ? (
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
+          ) : null}
+
+          <div className="mt-2.5 flex items-center gap-2">
+            {item.link ? (
+              <button
+                type="button"
+                onClick={open}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-gradient px-3 py-1 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 hover:shadow-md active:scale-[0.98]"
+              >
+                Open
+                <span aria-hidden>→</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                onMarkRead();
+                close();
+              }}
+              className="rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              Mark read
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Dismiss"
+          className="-mr-1 -mt-1 size-7 shrink-0 rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground inline-flex items-center justify-center"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* Bottom progress bar showing time-to-dismiss */}
+      <motion.div
+        initial={{ scaleX: 1 }}
+        animate={{ scaleX: 0 }}
+        transition={{ duration: 7, ease: "linear" }}
+        style={{ transformOrigin: "left" }}
+        className={cn(
+          "absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r",
+          stripe,
+        )}
+      />
+    </motion.div>
   );
 }
