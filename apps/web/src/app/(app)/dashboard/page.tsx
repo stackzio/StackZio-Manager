@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { formatMoney } from "@stackzio/lib/money";
 import { formatDate } from "@stackzio/lib/date";
-import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -43,7 +43,7 @@ export const metadata: Metadata = { title: "Dashboard" };
 export default async function DashboardPage() {
   const { org, role, user } = await requireOrg();
   const firstName = user.name?.split(" ")[0] ?? "friend";
-  if (canSeeFinancials(role)) {
+  if (canSeeProjectFinancials(role)) {
     return <AdminDashboard orgName={org.name} firstName={firstName} />;
   }
   return <MemberDashboard orgName={org.name} firstName={firstName} />;

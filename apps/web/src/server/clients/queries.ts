@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@stackzio/db";
 import type { Prisma } from "@stackzio/db";
-import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 
 export interface ClientListParams {
   q?: string;
@@ -13,11 +13,11 @@ export interface ClientListParams {
 
 /**
  * MEMBER role doesn't see clients at all — they live behind the same gate as
- * financials. Use canSeeFinancials() for both. Server-side redirect so direct
+ * financials. Use canSeeProjectFinancials() for both. Server-side redirect so direct
  * URL hits also bounce back to /dashboard.
  */
 function gateClientAccess(role: "OWNER" | "ADMIN" | "MEMBER") {
-  if (!canSeeFinancials(role)) redirect("/dashboard");
+  if (!canSeeProjectFinancials(role)) redirect("/dashboard");
 }
 
 export async function listClients(params: ClientListParams = {}) {

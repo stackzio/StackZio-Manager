@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProjectsTable } from "./_components/projects-table";
 import { ProjectsToolbar } from "./_components/projects-toolbar";
 import { Pagination } from "../clients/_components/pagination";
-import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -20,7 +20,7 @@ export default async function ProjectsPage({
   const sp = await searchParams;
   const { role } = await requireOrg();
   const isAdmin = role === "OWNER" || role === "ADMIN";
-  const showFinancials = canSeeFinancials(role);
+  const showFinancials = canSeeProjectFinancials(role);
 
   const result = await listProjects({
     q: typeof sp.q === "string" ? sp.q : undefined,

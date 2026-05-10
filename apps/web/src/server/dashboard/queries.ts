@@ -1,9 +1,9 @@
 import { prisma } from "@stackzio/db";
-import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 
 export async function getDashboardData() {
   const { org, role } = await requireOrg();
-  if (!canSeeFinancials(role)) {
+  if (!canSeeProjectFinancials(role)) {
     throw new Error("getDashboardData() called for a non-financials role — use getMemberDashboardData()");
   }
   const now = new Date();

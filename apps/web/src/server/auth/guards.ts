@@ -6,9 +6,30 @@ import { auth } from "./index";
 
 export const ACTIVE_ORG_COOKIE = "stackzio_active_org";
 
-/** Can this role see revenue / outstanding / payment / price data? */
-export function canSeeFinancials(role: OrgRole): boolean {
+/** Project-level financials: prices, payments, client info. */
+export function canSeeProjectFinancials(role: OrgRole): boolean {
   return role === "OWNER" || role === "ADMIN";
+}
+
+/** Org-level financials: P&L dashboard, all expenses, all payouts to others. */
+export function canSeeOrgFinancials(
+  role: OrgRole,
+  canSeeFinancials: boolean,
+): boolean {
+  return role === "OWNER" || (role === "ADMIN" && canSeeFinancials);
+}
+
+/** Manage org-level financials. Same gate as viewing. */
+export function canManageOrgFinancials(
+  role: OrgRole,
+  canSeeFinancials: boolean,
+): boolean {
+  return canSeeOrgFinancials(role, canSeeFinancials);
+}
+
+/** Toggle another member's finance-access flag. Owner only. */
+export function canGrantFinanceAccess(role: OrgRole): boolean {
+  return role === "OWNER";
 }
 
 /** Can this role upload / link / delete project documents? */
@@ -59,21 +80,24 @@ export const getActiveOrg = cache(async () => {
   const cookieStore = await cookies();
   const activeId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
 
-  if (activeId) {
-    const member = await prisma.organizationMember.findFirst({
-      where: { userId: user.id, organizationId: activeId },
+  const findMember = (where: { userId: string; organizationId?: string }) =>
+    prisma.organizationMember.findFirst({
+      where,
       include: { organization: true },
+      orderBy: { joinedAt: "desc" },
     });
-    if (member) return { org: member.organization, role: member.role };
-  }
 
-  const member = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    include: { organization: true },
-    orderBy: { joinedAt: "desc" },
-  });
+  const member =
+    (activeId
+      ? await findMember({ userId: user.id, organizationId: activeId })
+      : null) ?? (await findMember({ userId: user.id }));
+
   if (!member) return null;
-  return { org: member.organization, role: member.role };
+  return {
+    org: member.organization,
+    role: member.role,
+    canSeeFinancials: member.canSeeFinancials,
+  };
 });
 
 export const requireOrg = cache(async () => {
@@ -121,4 +145,20 @@ export async function requireSuperAdminAction() {
     throw new AuthError("Super admin only", "FORBIDDEN");
   }
   return user;
+}
+
+export async function requireOrgFinance() {
+  const ctx = await requireOrgAction();
+  if (!canSeeOrgFinancials(ctx.role, ctx.canSeeFinancials)) {
+    throw new AuthError("Finance access required", "FORBIDDEN");
+  }
+  return ctx;
+}
+
+export async function requirePageOrgFinance() {
+  const ctx = await requireOrg();
+  if (!canSeeOrgFinancials(ctx.role, ctx.canSeeFinancials)) {
+    redirect("/dashboard");
+  }
+  return ctx;
 }

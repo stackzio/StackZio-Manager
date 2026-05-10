@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/page-header";
 import { getProject, listOrgUsersForAssignment } from "@/server/projects/queries";
-import { canManageDocs, canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canManageDocs, canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 import { ProjectOverview } from "../_components/project-overview";
 import { TasksTab } from "../_components/tasks-tab";
 import { PaymentsTab } from "../_components/payments-tab";
@@ -29,7 +29,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const isAssigned =
     project.ownerId === user.id || project.members.some((m) => m.userId === user.id);
   const canEditNonFinancial = isAdmin || isAssigned;
-  const showFinancials = canSeeFinancials(role);
+  const showFinancials = canSeeProjectFinancials(role);
   const docsManager = canManageDocs(role);
   // Members don't see client info anywhere — same admin-only signal as financials.
   const showClient = showFinancials;

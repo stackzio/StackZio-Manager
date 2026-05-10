@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@stackzio/db";
-import { canSeeFinancials, requireOrg } from "@/server/auth/guards";
+import { canSeeProjectFinancials, requireOrg } from "@/server/auth/guards";
 
 export interface PaymentListParams {
   q?: string;
@@ -12,7 +12,7 @@ export interface PaymentListParams {
 export async function listPayments(params: PaymentListParams = {}) {
   const { org, role, user } = await requireOrg();
   // Members never see the payments ledger.
-  if (!canSeeFinancials(role)) redirect("/dashboard");
+  if (!canSeeProjectFinancials(role)) redirect("/dashboard");
   const { q, projectId, page = 1, pageSize = 25 } = params;
   const isMember = false;
 
@@ -64,7 +64,7 @@ export async function listPayments(params: PaymentListParams = {}) {
 
 export async function getReceiptData(projectId: string, paymentId: string) {
   const { org, role, user } = await requireOrg();
-  if (!canSeeFinancials(role)) redirect("/projects/" + projectId);
+  if (!canSeeProjectFinancials(role)) redirect("/projects/" + projectId);
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, projectId, organizationId: org.id },
     include: {
@@ -98,7 +98,7 @@ export async function getReceiptData(projectId: string, paymentId: string) {
 
 export async function getStatementData(projectId: string) {
   const { org, role, user } = await requireOrg();
-  if (!canSeeFinancials(role)) redirect("/projects/" + projectId);
+  if (!canSeeProjectFinancials(role)) redirect("/projects/" + projectId);
   const project = await prisma.project.findFirst({
     where: { id: projectId, organizationId: org.id },
     include: {
