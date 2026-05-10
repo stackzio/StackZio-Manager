@@ -227,11 +227,11 @@ export async function getProfitAndLoss(period: { from: Date; to: Date }): Promis
   };
 }
 
-function startOfMonthUTC(d: Date): Date {
+export function startOfMonthUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
-function addMonthsUTC(d: Date, n: number): Date {
+export function addMonthsUTC(d: Date, n: number): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
 }
 
