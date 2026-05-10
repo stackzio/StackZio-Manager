@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <SidebarProvider>
       <div className="flex min-h-screen bg-background">
-        <Sidebar role={active.role} />
+        <Sidebar role={active.role} canSeeFinancials={active.canSeeFinancials} />
         <MainPane>
           <Topbar
             user={{

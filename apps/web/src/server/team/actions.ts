@@ -243,6 +243,39 @@ export async function deleteOrganizationAction() {
   return { ok: true as const };
 }
 
+/**
+ * Owner-only toggle: grant or revoke an admin's org-finance access flag.
+ * - Refused for MEMBER (only admins can hold this flag).
+ * - Refused for OWNER (owners always have it implicitly).
+ */
+export async function setMemberFinanceAccessAction(memberId: string, canSee: boolean) {
+  const ctx = await requireOwnerAction();
+  const member = await prisma.organizationMember.findFirst({
+    where: { id: memberId, organizationId: ctx.org.id },
+  });
+  if (!member) return { ok: false as const, error: "Member not found" };
+  if (member.role === "MEMBER") {
+    return { ok: false as const, error: "Only admins can have finance access" };
+  }
+  if (member.role === "OWNER") {
+    return { ok: false as const, error: "Owners always have finance access" };
+  }
+  await prisma.organizationMember.update({
+    where: { id: memberId },
+    data: { canSeeFinancials: canSee },
+  });
+  await logActivity({
+    organizationId: ctx.org.id,
+    actorId: ctx.user.id,
+    entity: "organization",
+    entityId: member.userId,
+    action: canSee ? "finance_access_granted" : "finance_access_revoked",
+  });
+  revalidatePath("/team");
+  revalidateTag(tagOrgMembers(ctx.org.id));
+  return { ok: true as const };
+}
+
 // Accept invite — for the recipient, after signup/signin.
 export async function acceptInviteAction(token: string) {
   const user = await requireUserAction();

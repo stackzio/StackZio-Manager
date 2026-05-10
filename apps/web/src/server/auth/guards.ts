@@ -6,36 +6,18 @@ import { auth } from "./index";
 
 export const ACTIVE_ORG_COOKIE = "stackzio_active_org";
 
-/** Project-level financials: prices, payments, client info. */
-export function canSeeProjectFinancials(role: OrgRole): boolean {
-  return role === "OWNER" || role === "ADMIN";
-}
-
-/** Org-level financials: P&L dashboard, all expenses, all payouts to others. */
-export function canSeeOrgFinancials(
-  role: OrgRole,
-  canSeeFinancials: boolean,
-): boolean {
-  return role === "OWNER" || (role === "ADMIN" && canSeeFinancials);
-}
-
-/** Manage org-level financials. Same gate as viewing. */
-export function canManageOrgFinancials(
-  role: OrgRole,
-  canSeeFinancials: boolean,
-): boolean {
-  return canSeeOrgFinancials(role, canSeeFinancials);
-}
-
-/** Toggle another member's finance-access flag. Owner only. */
-export function canGrantFinanceAccess(role: OrgRole): boolean {
-  return role === "OWNER";
-}
-
-/** Can this role upload / link / delete project documents? */
-export function canManageDocs(role: OrgRole): boolean {
-  return role === "OWNER" || role === "ADMIN";
-}
+// Pure RBAC predicates live in `./rbac` so they can be imported from
+// client components without dragging server-only code (next/headers,
+// prisma) into the client bundle. Re-exported here for server callers
+// that already pull from `@/server/auth/guards`.
+export {
+  canSeeProjectFinancials,
+  canSeeOrgFinancials,
+  canManageOrgFinancials,
+  canGrantFinanceAccess,
+  canManageDocs,
+} from "./rbac";
+import { canSeeOrgFinancials } from "./rbac";
 
 export class AuthError extends Error {
   constructor(

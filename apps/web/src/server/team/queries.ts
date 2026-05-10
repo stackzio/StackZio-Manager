@@ -46,6 +46,7 @@ export async function listTeam() {
       id: m.id,
       role: m.role,
       joinedAt: m.joinedAt,
+      canSeeFinancials: m.canSeeFinancials,
       user: {
         id: m.user.id,
         name: m.user.name,

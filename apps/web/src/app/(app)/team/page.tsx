@@ -88,6 +88,7 @@ export default async function TeamPage() {
                         image: m.user.image,
                         joinedAt: m.joinedAt,
                         role: m.role,
+                        canSeeFinancials: m.canSeeFinancials,
                       }}
                       stats={m.stats}
                     />

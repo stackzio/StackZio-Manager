@@ -10,27 +10,35 @@ import {
   CreditCard,
   FolderKanban,
   LayoutDashboard,
+  LineChart,
   ListChecks,
+  Receipt,
   Settings,
   Users,
   UserCog,
+  Wallet,
 } from "lucide-react";
 import type { OrgRole } from "@stackzio/db";
+import { canSeeOrgFinancials } from "@/server/auth/rbac";
 import { cn } from "@/lib/cn";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/app-shell/sidebar-context";
 
-const NAV: Array<{
+type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
   memberOnly?: boolean;
-}> = [
+};
+
+const NAV: Array<NavItem> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   // Members get a dedicated task hub right under the dashboard.
   { href: "/my-tasks", label: "My tasks", icon: ListChecks, memberOnly: true },
+  // Personal earnings page — visible to every role.
+  { href: "/my-earnings", label: "My earnings", icon: Wallet },
   // Clients are admin-only — members never see client info.
   { href: "/clients", label: "Clients", icon: Users, adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban },
@@ -41,7 +49,75 @@ const NAV: Array<{
   { href: "/organization", label: "Organization", icon: Building2, adminOnly: true },
 ];
 
-export function Sidebar({ role }: { role: OrgRole }) {
+// Gated "Money" section — only owners and admins-with-flag.
+const MONEY_NAV: Array<NavItem> = [
+  { href: "/finance", label: "Finance", icon: LineChart },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/payouts", label: "Payouts", icon: Wallet },
+];
+
+function renderNavLink(item: NavItem, pathname: string, collapsed: boolean) {
+  const active = pathname === item.href || pathname.startsWith(item.href + "/");
+  const Icon = item.icon;
+  const link = (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+        collapsed ? "justify-center px-2.5 py-2.5" : "px-3 py-2",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+    >
+      {active ? (
+        <span
+          className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-gradient"
+          aria-hidden
+        />
+      ) : null}
+      <Icon
+        className={cn(
+          "size-4 shrink-0 transition-transform",
+          active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+        )}
+      />
+      <AnimatePresence initial={false}>
+        {!collapsed ? (
+          <motion.span
+            key="label"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: "auto" }}
+            exit={{ opacity: 0, width: 0 }}
+            transition={{ duration: 0.16 }}
+            className="truncate whitespace-nowrap"
+          >
+            {item.label}
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </Link>
+  );
+  return collapsed ? (
+    <Tooltip key={item.href}>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        {item.label}
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    <div key={item.href}>{link}</div>
+  );
+}
+
+export function Sidebar({
+  role,
+  canSeeFinancials,
+}: {
+  role: OrgRole;
+  canSeeFinancials: boolean;
+}) {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
   const isAdmin = role === "OWNER" || role === "ADMIN";
@@ -50,6 +126,7 @@ export function Sidebar({ role }: { role: OrgRole }) {
     if (i.memberOnly && isAdmin) return false;
     return true;
   });
+  const showMoney = canSeeOrgFinancials(role, canSeeFinancials);
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -95,61 +172,33 @@ export function Sidebar({ role }: { role: OrgRole }) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-            const Icon = item.icon;
-            const link = (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
-                  collapsed ? "justify-center px-2.5 py-2.5" : "px-3 py-2",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {active ? (
-                  <span
-                    className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-gradient"
+          {items.map((item) => renderNavLink(item, pathname, collapsed))}
+
+          {showMoney ? (
+            <div className="!mt-4 space-y-1">
+              <AnimatePresence initial={false}>
+                {!collapsed ? (
+                  <motion.p
+                    key="money-heading"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.16 }}
+                    className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Money
+                  </motion.p>
+                ) : (
+                  <div
+                    key="money-divider"
                     aria-hidden
+                    className="mx-2 my-2 h-px bg-border"
                   />
-                ) : null}
-                <Icon
-                  className={cn(
-                    "size-4 shrink-0 transition-transform",
-                    active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
-                  )}
-                />
-                <AnimatePresence initial={false}>
-                  {!collapsed ? (
-                    <motion.span
-                      key="label"
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: "auto" }}
-                      exit={{ opacity: 0, width: 0 }}
-                      transition={{ duration: 0.16 }}
-                      className="truncate whitespace-nowrap"
-                    >
-                      {item.label}
-                    </motion.span>
-                  ) : null}
-                </AnimatePresence>
-              </Link>
-            );
-            return collapsed ? (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              link
-            );
-          })}
+                )}
+              </AnimatePresence>
+              {MONEY_NAV.map((item) => renderNavLink(item, pathname, collapsed))}
+            </div>
+          ) : null}
         </nav>
 
         <div className="border-t p-3">

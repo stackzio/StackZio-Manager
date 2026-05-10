@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   UserCog,
   UserMinus,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { OrgRole } from "@stackzio/db";
@@ -34,7 +35,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { changeMemberRoleAction, removeMemberAction } from "@/server/team/actions";
+import { Switch } from "@/components/ui/switch";
+import {
+  changeMemberRoleAction,
+  removeMemberAction,
+  setMemberFinanceAccessAction,
+} from "@/server/team/actions";
 import { cn } from "@/lib/cn";
 
 interface Props {
@@ -48,6 +54,7 @@ interface Props {
     image: string | null;
     joinedAt: Date;
     role: OrgRole;
+    canSeeFinancials: boolean;
   };
   stats?: {
     projectCount: number;
@@ -71,6 +78,11 @@ export function MemberRow({ memberId, currentUserId, myRole, member, stats }: Pr
   const router = useRouter();
   const [pending, start] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Owner-only finance-access toggle for admin rows. Optimistic state.
+  const showFinanceToggle = myRole === "OWNER" && member.role === "ADMIN";
+  const [financeAccess, setFinanceAccess] = useState<boolean>(member.canSeeFinancials);
+  const [financePending, setFinancePending] = useState<boolean>(false);
 
   const isSelf = member.id === currentUserId;
   const canEditRole =
@@ -97,6 +109,28 @@ export function MemberRow({ memberId, currentUserId, myRole, member, stats }: Pr
       toast.success("Role updated");
       router.refresh();
     });
+  }
+
+  async function toggleFinanceAccess(next: boolean) {
+    // Optimistic toggle — flip immediately, revert on error.
+    const previous = financeAccess;
+    setFinanceAccess(next);
+    setFinancePending(true);
+    try {
+      const res = await setMemberFinanceAccessAction(memberId, next);
+      if (!res.ok) {
+        setFinanceAccess(previous);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(next ? "Finance access granted" : "Finance access revoked");
+      router.refresh();
+    } catch (e) {
+      setFinanceAccess(previous);
+      toast.error(e instanceof Error ? e.message : "Failed to update finance access");
+    } finally {
+      setFinancePending(false);
+    }
   }
 
   function remove() {
@@ -159,6 +193,29 @@ export function MemberRow({ memberId, currentUserId, myRole, member, stats }: Pr
           <p className="mt-1 text-[11px] text-muted-foreground">joined {formatDate(member.joinedAt)}</p>
         )}
       </div>
+
+      {showFinanceToggle ? (
+        <div
+          className={cn(
+            "hidden items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-1.5 sm:flex",
+            financeAccess ? "text-success" : "text-muted-foreground",
+          )}
+          title={
+            financeAccess
+              ? "This admin can see org-wide P&L, expenses, and payouts"
+              : "This admin cannot see org-wide P&L, expenses, or payouts"
+          }
+        >
+          <Wallet className="size-3.5" />
+          <span className="text-[11px] font-medium">Finance access</span>
+          <Switch
+            checked={financeAccess}
+            onCheckedChange={(v) => void toggleFinanceAccess(v)}
+            disabled={financePending}
+            aria-label="Toggle finance access"
+          />
+        </div>
+      ) : null}
 
       {canEditRole || canRemove ? (
         <DropdownMenu>
