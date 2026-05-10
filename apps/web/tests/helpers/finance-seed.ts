@@ -117,8 +117,25 @@ export async function clearTestSession(): Promise<void> {
  * defensively in case the cascade graph misses something.
  */
 export async function cleanupFinanceSeed(seed: FinanceSeed): Promise<void> {
+  const userIds = [
+    seed.owner.id,
+    seed.adminWithFlag.id,
+    seed.adminNoFlag.id,
+    seed.member.id,
+  ];
   // Activity logs reference users + orgs and would block user deletes.
   await prisma.activityLog.deleteMany({ where: { organizationId: seed.org.id } });
+  // Payout notifications get emitted to test users; clean defensively in case
+  // a future test produces a notification with a null organizationId (the
+  // org-cascade wouldn't reach those, and they would block user deletes).
+  await prisma.notification.deleteMany({
+    where: {
+      OR: [
+        { organizationId: seed.org.id },
+        { userId: { in: userIds } },
+      ],
+    },
+  });
   await prisma.payout.deleteMany({ where: { organizationId: seed.org.id } });
   await prisma.expense.deleteMany({ where: { organizationId: seed.org.id } });
   await prisma.expenseCategory.deleteMany({ where: { organizationId: seed.org.id } });
@@ -127,11 +144,5 @@ export async function cleanupFinanceSeed(seed: FinanceSeed): Promise<void> {
   await prisma.organizationMember.deleteMany({ where: { organizationId: seed.org.id } });
   await prisma.organization.delete({ where: { id: seed.org.id } }).catch(() => {});
   // Now safe to drop the test users.
-  await prisma.user.deleteMany({
-    where: {
-      id: {
-        in: [seed.owner.id, seed.adminWithFlag.id, seed.adminNoFlag.id, seed.member.id],
-      },
-    },
-  });
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
