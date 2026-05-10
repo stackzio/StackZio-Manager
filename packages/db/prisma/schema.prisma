@@ -43,6 +43,9 @@ model User {
   notifications   Notification[]
   updatesPosted   ProjectUpdate[]       @relation("UpdateAuthor")
   updateReactions ProjectUpdateReaction[]
+  expensesCreated   Expense[] @relation("ExpenseCreator")
+  payoutsReceived   Payout[]  @relation("PayoutMember")
+  payoutsCreated    Payout[]  @relation("PayoutCreator")
 }
 
 model Account {
@@ -122,6 +125,10 @@ model Organization {
   meetings      Meeting[]
   activityLogs  ActivityLog[]
   notifications Notification[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
+  payouts           Payout[]
+  timezone          String  @default("UTC")  // IANA tz, e.g. "Asia/Kolkata"
 
   @@index([createdById])
 }
@@ -138,6 +145,7 @@ model OrganizationMember {
   userId         String
   role           OrgRole  @default(MEMBER)
   joinedAt       DateTime @default(now())
+  canSeeFinancials  Boolean @default(false)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -259,6 +267,7 @@ model Project {
   docs         ProjectDoc[]
   meetings     Meeting[]
   updates      ProjectUpdate[]
+  payouts           Payout[]
 
   @@index([organizationId, status])
   @@index([organizationId, clientId])
@@ -532,4 +541,95 @@ model Notification {
   @@unique([userId, dedupeKey])
   @@index([userId, readAt, createdAt])
   @@index([organizationId])
+}
+
+// =============================================================
+// Finance
+// =============================================================
+
+enum ExpenseMethod {
+  BANK
+  CASH
+  UPI
+  CARD
+  OTHER
+}
+
+enum PayoutMethod {
+  BANK
+  CASH
+  UPI
+  CARD
+  OTHER
+}
+
+enum PayoutKind {
+  SALARY
+  PROJECT
+  BONUS
+}
+
+model ExpenseCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  color          String
+  icon           String
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Expense {
+  id             String        @id @default(cuid())
+  organizationId String
+  categoryId     String
+  vendor         String?
+  amount         Decimal       @db.Decimal(14, 2)
+  currency       String
+  spentAt        DateTime
+  method         ExpenseMethod @default(BANK)
+  reference      String?
+  note           String?
+  receiptUrl     String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy    User            @relation("ExpenseCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, spentAt])
+  @@index([categoryId])
+}
+
+model Payout {
+  id             String       @id @default(cuid())
+  organizationId String
+  memberUserId   String
+  kind           PayoutKind
+  amount         Decimal      @db.Decimal(14, 2)
+  currency       String
+  projectId      String?
+  periodMonth    DateTime?
+  paidAt         DateTime
+  method         PayoutMethod @default(BANK)
+  reference      String?
+  note           String?
+  createdById    String
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       User         @relation("PayoutMember", fields: [memberUserId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  createdBy    User         @relation("PayoutCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, paidAt])
+  @@index([memberUserId, paidAt])
+  @@index([projectId])
 }
