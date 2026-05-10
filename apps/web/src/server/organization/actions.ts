@@ -7,6 +7,7 @@ import { uniqueSlug } from "@stackzio/lib/slug";
 import { z } from "zod";
 import { ACTIVE_ORG_COOKIE, getCurrentUser, requireAdminAction, requireOrgAction, requireUserAction } from "@/server/auth/guards";
 import { cachedUserOrgs, tagOrgMembers, tagUserOrgs } from "@/server/cache";
+import { seedSystemExpenseCategories } from "@/server/finance/categories-seed";
 
 const createOrgSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -49,6 +50,7 @@ export async function createOrganizationAction(input: CreateOrgInput): Promise<C
         createdById: user.id,
       },
     });
+    await seedSystemExpenseCategories(tx, created.id);
     await tx.organizationMember.create({
       data: { organizationId: created.id, userId: user.id, role: "OWNER" },
     });
