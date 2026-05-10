@@ -46,12 +46,41 @@ export class AuthError extends Error {
   }
 }
 
+// =============================================================
+// Test-only session override
+// -------------------------------------------------------------
+// Vitest cannot run a real next-auth flow (no request, no cookies),
+// but we still want the guards' real org/role/flag resolution path to
+// execute against a real DB so finance RBAC bugs surface in unit tests.
+// `__setTestSession()` lets a test pin a userId + active orgId; the
+// guard helpers consult it before falling back to next-auth/cookies.
+// Hard-gated to NODE_ENV === "test" so production code paths cannot
+// accidentally bypass auth.
+// =============================================================
+type TestSession = { userId: string; orgId: string } | null;
+let __testSession: TestSession = null;
+
+export function __setTestSession(session: TestSession): void {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("__setTestSession is only available in NODE_ENV=test");
+  }
+  __testSession = session;
+}
+
 /**
  * React.cache() memoises the result for the duration of a single request,
  * so multiple components / queries that all need the active org share one
  * DB lookup instead of issuing 3+ identical queries.
  */
 export const getCurrentUser = cache(async () => {
+  if (process.env.NODE_ENV === "test" && __testSession) {
+    const u = await prisma.user.findUnique({
+      where: { id: __testSession.userId },
+      select: { id: true, email: true, name: true, image: true },
+    });
+    if (!u) return null;
+    return { id: u.id, email: u.email!, name: u.name, image: u.image };
+  }
   const session = await auth();
   if (!session?.user?.id) return null;
   return {
@@ -77,8 +106,6 @@ export async function requireUserAction() {
 export const getActiveOrg = cache(async () => {
   const user = await getCurrentUser();
   if (!user) return null;
-  const cookieStore = await cookies();
-  const activeId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
 
   const findMember = (where: { userId: string; organizationId?: string }) =>
     prisma.organizationMember.findFirst({
@@ -86,6 +113,20 @@ export const getActiveOrg = cache(async () => {
       include: { organization: true },
       orderBy: { joinedAt: "desc" },
     });
+
+  // In test mode with a pinned session, skip cookie lookup (no request scope).
+  if (process.env.NODE_ENV === "test" && __testSession) {
+    const member = await findMember({ userId: user.id, organizationId: __testSession.orgId });
+    if (!member) return null;
+    return {
+      org: member.organization,
+      role: member.role,
+      canSeeFinancials: member.canSeeFinancials,
+    };
+  }
+
+  const cookieStore = await cookies();
+  const activeId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
 
   const member =
     (activeId
