@@ -9,14 +9,24 @@ interface Props {
   value: number;
   currency: string;
   className?: string;
+  "data-testid"?: string;
 }
 
-export function AnimatedAmount({ value, currency, className }: Props) {
+export function AnimatedAmount({
+  value,
+  currency,
+  className,
+  "data-testid": dataTestid,
+}: Props) {
   const mv = useMotionValue(0);
   const spring = useSpring(mv, { damping: 22, stiffness: 240 });
   const display = useTransform(spring, (v) => formatMoney(v, currency as never));
   useEffect(() => {
     mv.set(value);
   }, [value, mv]);
-  return <motion.span className={className}>{display}</motion.span>;
+  return (
+    <motion.span className={className} data-testid={dataTestid}>
+      {display}
+    </motion.span>
+  );
 }

@@ -77,6 +77,8 @@ export function KPIStrip({ pl }: { pl: PLResult }) {
               : ""
           : "";
 
+        const testid = `kpi-${c.label.toLowerCase().replace(/\s+/g, "-")}`;
+
         return (
           <motion.div
             key={c.label}
@@ -86,6 +88,7 @@ export function KPIStrip({ pl }: { pl: PLResult }) {
             }}
             whileHover={{ y: -2 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            data-testid={testid}
           >
             <Card
               className={cn(
@@ -104,6 +107,7 @@ export function KPIStrip({ pl }: { pl: PLResult }) {
                     "mt-1 block text-2xl font-semibold tabular-nums",
                     valueTone,
                   )}
+                  data-testid={`${testid}-value`}
                 />
                 {pct !== null ? (
                   <p

@@ -22,6 +22,23 @@ interface Props {
 const ROUND = { full: "rounded-full", lg: "rounded-lg", xl: "rounded-xl" } as const;
 const SIZE = { md: "size-14", lg: "size-20" } as const;
 
+// Different kinds accept different files. The store enforces the same limits
+// server-side, this just keeps the OS file picker tidy.
+const ACCEPT: Record<UploadKind, string> = {
+  "org-logo": "image/png,image/jpeg,image/webp,image/svg+xml,image/gif",
+  "user-avatar": "image/png,image/jpeg,image/webp,image/svg+xml,image/gif",
+  "project-doc":
+    "image/*,application/pdf,application/zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,text/markdown,video/mp4,video/webm,video/quicktime",
+  "expense-receipt": "image/png,image/jpeg,image/webp,image/gif,application/pdf",
+};
+
+const HELP: Record<UploadKind, string> = {
+  "org-logo": "PNG, JPEG, WebP, SVG, GIF · up to 4 MB.",
+  "user-avatar": "PNG, JPEG, WebP, SVG, GIF · up to 4 MB.",
+  "project-doc": "Images, PDFs, Office docs, ZIP, MP4 · up to 25 MB.",
+  "expense-receipt": "Image or PDF · up to 10 MB.",
+};
+
 export function ImageUpload({
   kind,
   currentUrl,
@@ -76,12 +93,12 @@ export function ImageUpload({
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
           {preview ? "Replace" : "Upload"}
         </Button>
-        <p className="text-xs text-muted-foreground">PNG, JPEG, WebP, SVG, GIF · up to 4 MB.</p>
+        <p className="text-xs text-muted-foreground">{HELP[kind]}</p>
       </div>
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+        accept={ACCEPT[kind]}
         className="hidden"
         onChange={onChange}
       />

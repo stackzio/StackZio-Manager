@@ -38,10 +38,22 @@ const PROJECT_DOC_TYPES = new Set<string>([
   "video/quicktime",
 ]);
 
+// Expense receipts: images + PDFs only. Smaller cap because receipts are
+// almost always a single page / photo.
+const EXPENSE_RECEIPT_TYPES = new Set<string>([
+  ...IMAGE_TYPES,
+  "application/pdf",
+]);
+
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB for project docs
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB for logos/avatars
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024; // 10 MB for expense receipts
 
-export type UploadKind = "org-logo" | "user-avatar" | "project-doc";
+export type UploadKind =
+  | "org-logo"
+  | "user-avatar"
+  | "project-doc"
+  | "expense-receipt";
 
 export interface SavedUpload {
   url: string;
@@ -78,12 +90,29 @@ export async function saveImage(args: {
   ownerId: string;
 }): Promise<SavedUpload> {
   const isImageOnly = args.kind === "org-logo" || args.kind === "user-avatar";
-  const allowed = isImageOnly ? IMAGE_TYPES : PROJECT_DOC_TYPES;
-  const cap = isImageOnly ? MAX_IMAGE_BYTES : MAX_BYTES;
-  const sizeLabel = isImageOnly ? "4 MB" : "25 MB";
+  const isReceipt = args.kind === "expense-receipt";
+
+  let allowed: Set<string>;
+  let cap: number;
+  let sizeLabel: string;
+  if (isImageOnly) {
+    allowed = IMAGE_TYPES;
+    cap = MAX_IMAGE_BYTES;
+    sizeLabel = "4 MB";
+  } else if (isReceipt) {
+    allowed = EXPENSE_RECEIPT_TYPES;
+    cap = MAX_RECEIPT_BYTES;
+    sizeLabel = "10 MB";
+  } else {
+    allowed = PROJECT_DOC_TYPES;
+    cap = MAX_BYTES;
+    sizeLabel = "25 MB";
+  }
 
   if (!allowed.has(args.file.type)) {
     if (isImageOnly) throw new Error("Only PNG, JPEG, WebP, SVG or GIF are allowed");
+    if (isReceipt)
+      throw new Error("Receipts must be an image (PNG, JPEG, WebP, GIF) or PDF");
     throw new Error(
       "Unsupported file type. Allowed: images, PDF, Word, Excel, PowerPoint, ZIP, MP4 / WebM",
     );
@@ -96,7 +125,11 @@ export async function saveImage(args: {
 
   const buffer = Buffer.from(await args.file.arrayBuffer());
   const id = `${args.ownerId}-${randomBytes(8).toString("hex")}`;
-  const folder = `stackzio/${args.kind}`;
+  // Receipts go under their own per-org folder so they're easy to audit /
+  // backfill if we ever export to S3. Other kinds keep their existing path.
+  const folder = isReceipt
+    ? `stackzio/expense-receipts/${args.ownerId}`
+    : `stackzio/${args.kind}`;
   const resource_type = resourceTypeFor(args.file.type);
 
   const result = await new Promise<UploadApiResponse>((resolve, reject) => {

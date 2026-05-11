@@ -24,8 +24,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryChip } from "@/components/finance/category-chip";
-// TODO(phase-14): switch ImageUpload `kind` from "project-doc" to "expense-receipt"
-// once the upload pipeline learns about expense receipts. See line ~263 below.
 import { ImageUpload } from "@/components/upload/image-upload";
 import {
   createExpenseAction,
@@ -291,11 +289,8 @@ export function ExpenseForm({ open, onOpenChange, categories, initial }: Props) 
 
           <div className="space-y-2">
             <Label>Receipt</Label>
-            {/* TODO(phase-14): switch kind to "expense-receipt" once the
-                uploads pipeline learns the new kind. For now we piggyback on
-                "project-doc" so PDFs/images are accepted at 25 MB. */}
             <ImageUpload
-              kind="project-doc"
+              kind="expense-receipt"
               currentUrl={receiptUrl}
               fallbackText="RC"
               onUploaded={(url) => setReceiptUrl(url)}

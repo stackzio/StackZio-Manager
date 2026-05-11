@@ -8,7 +8,12 @@ import { cookies } from "next/headers";
 import { logActivity } from "@/server/activity/log";
 import { tagUserOrgs } from "@/server/cache";
 
-const ALLOWED_KINDS: UploadKind[] = ["org-logo", "user-avatar", "project-doc"];
+const ALLOWED_KINDS: UploadKind[] = [
+  "org-logo",
+  "user-avatar",
+  "project-doc",
+  "expense-receipt",
+];
 
 export const runtime = "nodejs";
 
@@ -131,6 +136,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ ...saved, docId: doc.id });
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 400 });
+    }
+  }
+
+  if (kind === "expense-receipt") {
+    const cookieStore = await cookies();
+    const orgId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+    if (!orgId)
+      return NextResponse.json({ error: "No active organization" }, { status: 400 });
+
+    // Receipts are finance-scoped. Members may never upload; admins must have
+    // the canSeeFinancials flag toggled on. Owners always pass.
+    const member = await prisma.organizationMember.findFirst({
+      where: { organizationId: orgId, userId: session.user.id },
+      select: { role: true, canSeeFinancials: true },
+    });
+    if (!member) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (
+      member.role === "MEMBER" ||
+      (member.role === "ADMIN" && !member.canSeeFinancials)
+    ) {
+      return NextResponse.json(
+        { error: "Only owners and finance-enabled admins can upload receipts" },
+        { status: 403 },
+      );
+    }
+
+    try {
+      const saved = await saveImage({ file, kind, ownerId: orgId });
+      // We don't write a separate row for receipts here — the receipt URL is
+      // stored on Expense.receiptUrl when the form submits. Just return the
+      // upload metadata so the client can persist it via the expense action.
+      return NextResponse.json(saved);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Upload failed" },
+        { status: 400 },
+      );
     }
   }
 
