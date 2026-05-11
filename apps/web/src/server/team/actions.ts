@@ -332,19 +332,23 @@ export async function acceptInviteAction(token: string) {
     },
     select: { userId: true },
   });
-  for (const a of admins) {
-    await emitNotification({
-      userId: a.userId,
-      organizationId: invite.organizationId,
-      kind: "MEMBER_JOINED",
-      title: "New teammate",
-      body: `${user.name ?? user.email} joined ${invite.organization.name}`,
-      link: "/team",
-      refEntity: "team",
-      refId: user.id,
-      dedupeKey: `member_joined:${user.id}:${invite.organizationId}`,
-    });
-  }
+  // Parallel notify — sequential await on N admins was making
+  // accept-invite drag for orgs with many admins.
+  await Promise.allSettled(
+    admins.map((a) =>
+      emitNotification({
+        userId: a.userId,
+        organizationId: invite.organizationId,
+        kind: "MEMBER_JOINED",
+        title: "New teammate",
+        body: `${user.name ?? user.email} joined ${invite.organization.name}`,
+        link: "/team",
+        refEntity: "team",
+        refId: user.id,
+        dedupeKey: `member_joined:${user.id}:${invite.organizationId}`,
+      }),
+    ),
+  );
 
   revalidatePath("/", "layout");
   revalidateTag(tagOrgMembers(invite.organizationId));

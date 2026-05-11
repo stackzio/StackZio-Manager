@@ -38,19 +38,46 @@ export async function sweepNotifications(userId: string): Promise<void> {
 
   const seeds: NotificationSeed[] = [];
 
-  // ---- Meetings ----
-  const meetings = await prisma.meeting.findMany({
-    where: {
-      organizationId: { in: orgIds },
-      status: "SCHEDULED",
-      scheduledAt: { gte: now, lte: in24h },
-      OR: [
-        { createdById: userId },
-        { attendees: { some: { userId } } },
-      ],
-    },
-    select: { id: true, organizationId: true, title: true, scheduledAt: true },
-  });
+  // Fire the three independent top-level queries (meetings, per-org projects,
+  // tasks) in parallel. Previously meetings ran, then a sequential per-org
+  // project query, then tasks — same total work but with the round-trip
+  // latency stacking up to 1+memberships+1 hops. Now it's max(meetings,
+  // projects, tasks) which is dominated by one ~50–100ms Supabase hop.
+  const [meetings, projectsByMembership, tasks] = await Promise.all([
+    prisma.meeting.findMany({
+      where: {
+        organizationId: { in: orgIds },
+        status: "SCHEDULED",
+        scheduledAt: { gte: now, lte: in24h },
+        OR: [{ createdById: userId }, { attendees: { some: { userId } } }],
+      },
+      select: { id: true, organizationId: true, title: true, scheduledAt: true },
+    }),
+    Promise.all(
+      memberships.map((m) => {
+        const isAdmin = m.role === "OWNER" || m.role === "ADMIN";
+        return prisma.project.findMany({
+          where: {
+            organizationId: m.organizationId,
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+            deadline: { not: null },
+            ...(isAdmin
+              ? {}
+              : { OR: [{ ownerId: userId }, { members: { some: { userId } } }] }),
+          },
+          select: { id: true, organizationId: true, name: true, deadline: true },
+        });
+      }),
+    ),
+    prisma.task.findMany({
+      where: {
+        assigneeId: userId,
+        status: { not: "DONE" },
+        dueDate: { not: null, lte: in24h },
+      },
+      select: { id: true, organizationId: true, projectId: true, title: true, dueDate: true },
+    }),
+  ]);
   for (const m of meetings) {
     const minsUntil = Math.round((m.scheduledAt.getTime() - now.getTime()) / 60000);
     if (m.scheduledAt <= in1h) {
@@ -81,21 +108,9 @@ export async function sweepNotifications(userId: string): Promise<void> {
   }
 
   // ---- Projects: overdue + deadline near (admin/owner sees all; member sees assigned) ----
-  for (const m of memberships) {
-    const isAdmin = m.role === "OWNER" || m.role === "ADMIN";
-    const projects = await prisma.project.findMany({
-      where: {
-        organizationId: m.organizationId,
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
-        deadline: { not: null },
-        ...(isAdmin
-          ? {}
-          : {
-              OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-            }),
-      },
-      select: { id: true, organizationId: true, name: true, deadline: true },
-    });
+  // projectsByMembership[i] corresponds to memberships[i] — prefetched in
+  // parallel above.
+  for (const projects of projectsByMembership) {
     for (const p of projects) {
       if (!p.deadline) continue;
       if (p.deadline < now) {
@@ -129,14 +144,7 @@ export async function sweepNotifications(userId: string): Promise<void> {
   }
 
   // ---- Tasks assigned to me ----
-  const tasks = await prisma.task.findMany({
-    where: {
-      assigneeId: userId,
-      status: { not: "DONE" },
-      dueDate: { not: null, lte: in24h },
-    },
-    select: { id: true, organizationId: true, projectId: true, title: true, dueDate: true },
-  });
+  // `tasks` is the prefetched result of the parallel Promise.all above.
   for (const t of tasks) {
     if (!t.dueDate) continue;
     const overdue = t.dueDate < now;

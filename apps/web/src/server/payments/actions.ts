@@ -47,22 +47,28 @@ export async function createPaymentAction(projectId: string, input: UpsertPaymen
     metadata: { projectId, amount: data.amount, kind: data.kind },
   });
 
-  // Notify the project owner + members (excluding the actor) so they see it in the bell.
-  const recipients = new Set<string>([project.ownerId, ...project.members.map((m) => m.userId)]);
+  // Notify the project owner + members (excluding the actor). Fire in
+  // parallel — sequential await on N recipients was dominating latency.
+  const recipients = new Set<string>([
+    project.ownerId,
+    ...project.members.map((m) => m.userId),
+  ]);
   recipients.delete(ctx.user.id);
-  for (const userId of recipients) {
-    await emitNotification({
-      userId,
-      organizationId: ctx.org.id,
-      kind: "PAYMENT_RECORDED",
-      title: "Payment recorded",
-      body: `${data.kind} of ${data.amount} on "${project.name}"`,
-      link: `/projects/${projectId}`,
-      refEntity: "payment",
-      refId: payment.id,
-      dedupeKey: `payment:created:${payment.id}`,
-    });
-  }
+  await Promise.allSettled(
+    Array.from(recipients).map((userId) =>
+      emitNotification({
+        userId,
+        organizationId: ctx.org.id,
+        kind: "PAYMENT_RECORDED",
+        title: "Payment recorded",
+        body: `${data.kind} of ${data.amount} on "${project.name}"`,
+        link: `/projects/${projectId}`,
+        refEntity: "payment",
+        refId: payment.id,
+        dedupeKey: `payment:created:${payment.id}`,
+      }),
+    ),
+  );
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/payments");
