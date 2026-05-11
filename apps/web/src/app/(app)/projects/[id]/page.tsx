@@ -93,7 +93,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <UpdatesTab
             projectId={project.id}
             updates={project.updates}
-            currentUserId={user.id}
+            currentUser={user}
             isAdmin={isAdmin}
             canPost={canEditNonFinancial}
           />

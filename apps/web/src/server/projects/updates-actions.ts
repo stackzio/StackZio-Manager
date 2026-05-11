@@ -42,6 +42,9 @@ export async function postProjectUpdateAction(
   }
   const { ctx, project } = context;
 
+  // Create the update + include the author payload in one round-trip so the
+  // client can swap its optimistic placeholder for the real row without a
+  // second fetch.
   const update = await prisma.projectUpdate.create({
     data: {
       projectId: project.id,
@@ -49,35 +52,55 @@ export async function postProjectUpdateAction(
       kind: parsed.data.kind as ProjectUpdateKind,
       body: parsed.data.body,
     },
-  });
-  await logActivity({
-    organizationId: ctx.org.id,
-    actorId: ctx.user.id,
-    entity: "project",
-    entityId: project.id,
-    action: "update_posted",
-    metadata: { updateId: update.id, kind: update.kind },
+    include: {
+      author: { select: { id: true, name: true, email: true, image: true } },
+    },
   });
 
-  // Notify everyone else on the project
-  const recipients = new Set<string>([project.ownerId, ...project.members.map((m) => m.userId)]);
+  // Fire activity log and notifications in parallel — the user is waiting on
+  // this action's return, no reason to serialize them.
+  const recipients = new Set<string>([
+    project.ownerId,
+    ...project.members.map((m) => m.userId),
+  ]);
   recipients.delete(ctx.user.id);
-  for (const userId of recipients) {
-    await emitNotification({
-      userId,
+  await Promise.allSettled([
+    logActivity({
       organizationId: ctx.org.id,
-      kind: "GENERIC",
-      title: project.name,
-      body: parsed.data.body.slice(0, 140),
-      link: `/projects/${project.id}?tab=updates`,
-      refEntity: "project",
-      refId: project.id,
-      dedupeKey: `project_update:${update.id}`,
-    });
-  }
+      actorId: ctx.user.id,
+      entity: "project",
+      entityId: project.id,
+      action: "update_posted",
+      metadata: { updateId: update.id, kind: update.kind },
+    }),
+    ...Array.from(recipients).map((userId) =>
+      emitNotification({
+        userId,
+        organizationId: ctx.org.id,
+        kind: "GENERIC",
+        title: project.name,
+        body: parsed.data.body.slice(0, 140),
+        link: `/projects/${project.id}?tab=updates`,
+        refEntity: "project",
+        refId: project.id,
+        dedupeKey: `project_update:${update.id}`,
+      }),
+    ),
+  ]);
 
   revalidatePath(`/projects/${project.id}`);
-  return { ok: true as const, updateId: update.id };
+  return {
+    ok: true as const,
+    updateId: update.id,
+    update: {
+      id: update.id,
+      body: update.body,
+      kind: update.kind,
+      createdAt: update.createdAt,
+      authorId: update.authorId,
+      author: update.author,
+    },
+  };
 }
 
 export async function deleteProjectUpdateAction(updateId: string) {
