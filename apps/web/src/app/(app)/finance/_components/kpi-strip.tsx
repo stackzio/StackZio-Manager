@@ -5,7 +5,6 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { AnimatedAmount } from "@/components/finance/animated-amount";
 import { cn } from "@/lib/cn";
-import type { PLResult } from "@/server/finance/queries";
 
 interface CardSpec {
   label: string;
@@ -18,33 +17,47 @@ interface CardSpec {
   tone: string;
 }
 
-export function KPIStrip({ pl }: { pl: PLResult }) {
+export interface KPIStripData {
+  currency: string;
+  revenue: number;
+  expenses: number;
+  payouts: number;
+  net: number;
+  prev: {
+    revenue: number;
+    expenses: number;
+    payouts: number;
+    net: number;
+  };
+}
+
+export function KPIStrip({ data }: { data: KPIStripData }) {
   const cards: CardSpec[] = [
     {
       label: "Revenue",
-      value: Number(pl.revenue.toFixed(2)),
-      prev: Number(pl.prev.revenue.toFixed(2)),
+      value: data.revenue,
+      prev: data.prev.revenue,
       positive: true,
       tone: "from-emerald-500/15 to-emerald-500/0",
     },
     {
       label: "Expenses",
-      value: Number(pl.expenses.toFixed(2)),
-      prev: Number(pl.prev.expenses.toFixed(2)),
+      value: data.expenses,
+      prev: data.prev.expenses,
       positive: false,
       tone: "from-rose-500/15 to-rose-500/0",
     },
     {
       label: "Payouts",
-      value: Number(pl.payouts.toFixed(2)),
-      prev: Number(pl.prev.payouts.toFixed(2)),
+      value: data.payouts,
+      prev: data.prev.payouts,
       positive: false,
       tone: "from-amber-500/15 to-amber-500/0",
     },
     {
       label: "Net profit",
-      value: Number(pl.net.toFixed(2)),
-      prev: Number(pl.prev.net.toFixed(2)),
+      value: data.net,
+      prev: data.prev.net,
       isNet: true,
       tone: "from-violet-500/15 to-violet-500/0",
     },
@@ -102,7 +115,7 @@ export function KPIStrip({ pl }: { pl: PLResult }) {
                 </p>
                 <AnimatedAmount
                   value={c.value}
-                  currency={pl.currency}
+                  currency={data.currency}
                   className={cn(
                     "mt-1 block text-2xl font-semibold tabular-nums",
                     valueTone,

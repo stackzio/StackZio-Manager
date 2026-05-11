@@ -82,15 +82,23 @@ const config: Config = {
         display: ["var(--font-display)", "var(--font-inter)", "system-ui", "sans-serif"],
       },
       backgroundImage: {
+        // Premium indigo → violet → fuchsia. Tightened hue range, no orange
+        // tail — reads as polished/tech rather than candy/playful.
         "brand-gradient":
-          "linear-gradient(135deg, #6d28d9 0%, #a855f7 35%, #ec4899 70%, #f97316 100%)",
+          "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%)",
         "brand-gradient-soft":
-          "linear-gradient(135deg, rgba(109,40,217,0.18) 0%, rgba(168,85,247,0.18) 35%, rgba(236,72,153,0.18) 70%, rgba(249,115,22,0.18) 100%)",
+          "linear-gradient(135deg, rgba(79,70,229,0.16) 0%, rgba(124,58,237,0.16) 50%, rgba(192,38,211,0.16) 100%)",
         "brand-radial":
-          "radial-gradient(80% 80% at 0% 0%, #6d28d9 0%, transparent 60%), radial-gradient(80% 80% at 100% 100%, #f97316 0%, transparent 60%), linear-gradient(135deg, #a855f7 0%, #ec4899 100%)",
+          "radial-gradient(80% 80% at 0% 0%, rgba(79,70,229,0.55) 0%, transparent 55%), radial-gradient(70% 70% at 100% 100%, rgba(192,38,211,0.45) 0%, transparent 55%), linear-gradient(135deg, #6d28d9 0%, #a21caf 100%)",
+        // Subtle white-edge highlight used inside gradient buttons for a glass
+        // top sheen — pair with `bg-brand-gradient` to get the premium feel.
+        "brand-highlight":
+          "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 38%, rgba(255,255,255,0) 100%)",
       },
       boxShadow: {
-        glow: "0 10px 30px -8px rgba(124,58,237,0.45), 0 4px 12px -4px rgba(236,72,153,0.25)",
+        // Softer, deeper "premium" glow. Indigo base, fuchsia accent.
+        glow: "0 8px 28px -10px rgba(99,102,241,0.55), 0 2px 8px -2px rgba(192,38,211,0.30)",
+        "glow-sm": "0 4px 14px -6px rgba(99,102,241,0.45), 0 1px 4px -1px rgba(192,38,211,0.22)",
       },
       keyframes: {
         "accordion-down": {
@@ -109,12 +117,17 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "progress-sheen": {
+          "0%": { transform: "translateX(-100%)" },
+          "60%, 100%": { transform: "translateX(400%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
         shimmer: "shimmer 1.6s linear infinite",
+        "progress-sheen": "progress-sheen 2.4s ease-in-out infinite",
       },
     },
   },

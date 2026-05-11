@@ -99,13 +99,13 @@
     text-wrap: balance;
   }
   .text-gradient-brand {
-    background-image: linear-gradient(135deg, #6d28d9 0%, #a855f7 35%, #ec4899 70%, #f97316 100%);
+    background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .glow-ring {
-    box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.4), 0 8px 30px -8px rgba(124, 58, 237, 0.45);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.4), 0 8px 28px -10px rgba(99, 102, 241, 0.55), 0 2px 8px -2px rgba(192, 38, 211, 0.30);
   }
   .skeleton {
     background: linear-gradient(

@@ -13,7 +13,12 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md active:scale-[0.98]",
         gradient:
-          "bg-brand-gradient text-white shadow-md shadow-violet-600/20 hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] hover:brightness-110 hover:saturate-110",
+          "bg-brand-gradient text-white shadow-glow-sm overflow-hidden isolate " +
+          // Glass top-highlight overlay — subtle white sheen on the top half.
+          "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-brand-highlight before:opacity-90 " +
+          // Inner ring for crisp edge against the gradient body.
+          "after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:rounded-[inherit] after:ring-1 after:ring-inset after:ring-white/15 " +
+          "hover:shadow-glow hover:-translate-y-0.5 hover:brightness-[1.04] active:translate-y-0 active:scale-[0.98]",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md active:scale-[0.98]",
         outline:

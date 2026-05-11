@@ -84,6 +84,23 @@ export default async function FinancePage({
     color: KIND_COLOR[k.kind],
   }));
 
+  // Convert Decimals to plain numbers BEFORE crossing the server→client
+  // boundary. The RSC payload serializes Decimals as plain objects, losing
+  // their .toFixed() method, which would break KPIStrip on the client.
+  const kpi = {
+    currency: pl.currency,
+    revenue: Number(pl.revenue.toFixed(2)),
+    expenses: Number(pl.expenses.toFixed(2)),
+    payouts: Number(pl.payouts.toFixed(2)),
+    net: Number(pl.net.toFixed(2)),
+    prev: {
+      revenue: Number(pl.prev.revenue.toFixed(2)),
+      expenses: Number(pl.prev.expenses.toFixed(2)),
+      payouts: Number(pl.prev.payouts.toFixed(2)),
+      net: Number(pl.prev.net.toFixed(2)),
+    },
+  };
+
   return (
     <div className="space-y-6">
       <FadeIn>
@@ -103,7 +120,7 @@ export default async function FinancePage({
         </div>
       </FadeIn>
 
-      <KPIStrip pl={pl} />
+      <KPIStrip data={kpi} />
 
       <TrendChart monthly={pl.monthly} currency={pl.currency} />
 

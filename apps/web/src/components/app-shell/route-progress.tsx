@@ -71,7 +71,7 @@ export function RouteProgress() {
         className="h-full origin-left"
         style={{
           backgroundImage:
-            "linear-gradient(90deg, #7c3aed 0%, #d946ef 50%, #f97316 100%)",
+            "linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%)",
           transform: `scaleX(${Math.min(100, progress) / 100})`,
           opacity: progress > 0 ? 1 : 0,
           transition:

@@ -2,16 +2,18 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { Check, ListFilter, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/cn";
-import { CategoryChip } from "@/components/finance/category-chip";
 import {
   ExpenseForm,
   type ExpenseFormCategory,
 } from "./expense-form";
+
+type IconComponent = React.ComponentType<{ className?: string }>;
 
 interface Props {
   categories: ExpenseFormCategory[];
@@ -133,35 +135,23 @@ export function ExpensesToolbar({ categories }: Props) {
         </div>
 
         {categories.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {categories.map((c) => {
-              const active = cats.has(c.id);
-              return (
-                <button
-                  type="button"
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <ListFilter className="size-3" /> Filter by category
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <AllChip active={cats.size === 0} onClick={() => updateParam("cats", null)} />
+              {categories.map((c) => (
+                <FilterChip
                   key={c.id}
+                  name={c.name}
+                  color={c.color}
+                  icon={c.icon}
+                  active={cats.has(c.id)}
                   onClick={() => toggleCategory(c.id)}
-                  className={cn(
-                    "rounded-full transition-all",
-                    active
-                      ? "ring-2 ring-offset-1 ring-offset-background"
-                      : "opacity-70 hover:opacity-100",
-                  )}
-                  style={
-                    active
-                      ? ({
-                          // reason: dynamic ring color from category palette
-                          "--tw-ring-color": c.color,
-                        } as React.CSSProperties)
-                      : undefined
-                  }
-                  aria-pressed={active}
-                  aria-label={`Toggle ${c.name} filter`}
-                >
-                  <CategoryChip name={c.name} color={c.color} icon={c.icon} />
-                </button>
-              );
-            })}
+                />
+              ))}
+            </div>
           </div>
         ) : null}
       </div>
@@ -175,6 +165,74 @@ export function ExpensesToolbar({ categories }: Props) {
         />
       ) : null}
     </>
+  );
+}
+
+function FilterChip({
+  name,
+  color,
+  icon,
+  active,
+  onClick,
+}: {
+  name: string;
+  color: string;
+  icon: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const Icon =
+    (LucideIcons as unknown as Record<string, IconComponent>)[icon] ??
+    LucideIcons.Tag;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`Toggle ${name} filter`}
+      className={cn(
+        "group inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        active ? "shadow-sm" : "hover:-translate-y-px",
+      )}
+      style={
+        active
+          ? {
+              backgroundColor: color,
+              borderColor: color,
+              color: "#fff",
+            }
+          : {
+              backgroundColor: color + "14",
+              borderColor: color + "66",
+              color,
+            }
+      }
+    >
+      {active ? <Check className="size-3" /> : <Icon className="size-3" />}
+      {name}
+    </button>
+  );
+}
+
+function AllChip({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label="Show all categories"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        active
+          ? "border-transparent bg-brand-gradient text-white shadow-sm"
+          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/40",
+      )}
+    >
+      <Sparkles className="size-3" />
+      All
+    </button>
   );
 }
 

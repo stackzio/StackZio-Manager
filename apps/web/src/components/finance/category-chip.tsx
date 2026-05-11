@@ -24,9 +24,9 @@ export function CategoryChip({
         className,
       )}
       style={{
-        borderColor: color + "55",
+        borderColor: color + "80",
         color,
-        backgroundColor: color + "11",
+        backgroundColor: color + "26",
       }}
     >
       <Icon className="size-3" />
