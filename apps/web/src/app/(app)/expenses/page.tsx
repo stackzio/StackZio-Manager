@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requirePageOrgFinance } from "@/server/auth/guards";
 import { listCategories, listExpenses } from "@/server/finance/queries";
+import { catchUpOrgRecurring } from "@/server/finance/recurring/lazy";
 import { PageHeader } from "@/components/page-header";
 import { ExpensesToolbar } from "./_components/expenses-toolbar";
 import {
@@ -28,6 +29,11 @@ export default async function ExpensesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const ctx = await requirePageOrgFinance();
+  // Lazy catch-up: materialize any due recurring rules before fetching the
+  // expense list, so a newly-arrived row from a recurring rule appears on
+  // this very render. Awaited because it's cheap (one indexed scan) when
+  // nothing's due — the common case.
+  await catchUpOrgRecurring(ctx.org.id);
   const sp = await searchParams;
 
   const fromStr = typeof sp.from === "string" ? sp.from : undefined;
@@ -61,6 +67,7 @@ export default async function ExpensesPage({
     reference: r.reference,
     note: r.note,
     receiptUrl: r.receiptUrl,
+    ruleId: r.ruleId,
   }));
 
   const cats = categories.map((c) => ({
@@ -77,6 +84,16 @@ export default async function ExpensesPage({
       <PageHeader
         title="Expenses"
         description="Track every outflow — vendors, ads, software, rent."
+        actions={
+          <a
+            href="/expenses/recurring"
+            className="group inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+          >
+            <span className="inline-block size-1.5 rounded-full bg-primary animate-pulse" />
+            Recurring rules
+            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+          </a>
+        }
       />
       <ExpensesToolbar categories={cats} />
       <ExpensesTable

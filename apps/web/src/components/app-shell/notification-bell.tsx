@@ -10,6 +10,7 @@ import {
   CircleAlert,
   CreditCard,
   ListChecks,
+  Repeat,
   UserPlus,
   X,
   Sparkles,
@@ -56,6 +57,7 @@ const ICON: Record<NotificationKind, React.ComponentType<{ className?: string }>
   MEMBER_JOINED: UserPlus,
   TASK_DUE_SOON: ListChecks,
   TASK_OVERDUE: ListChecks,
+  RECURRING_EXPENSE_ADDED: Repeat,
   GENERIC: Sparkles,
 };
 
@@ -69,6 +71,7 @@ const TONE: Record<NotificationKind, string> = {
   MEMBER_JOINED: "text-primary bg-primary/10",
   TASK_DUE_SOON: "text-warning bg-warning/10",
   TASK_OVERDUE: "text-destructive bg-destructive/10",
+  RECURRING_EXPENSE_ADDED: "text-primary bg-primary/10",
   GENERIC: "text-primary bg-primary/10",
 };
 
@@ -83,6 +86,7 @@ const ACCENT_GRADIENT: Record<NotificationKind, string> = {
   MEMBER_JOINED: "from-violet-500 via-indigo-500 to-blue-500",
   TASK_DUE_SOON: "from-amber-500 via-orange-500 to-pink-500",
   TASK_OVERDUE: "from-rose-500 via-red-500 to-orange-500",
+  RECURRING_EXPENSE_ADDED: "from-indigo-500 via-violet-500 to-fuchsia-500",
   GENERIC: "from-violet-500 via-fuchsia-500 to-pink-500",
 };
 
@@ -96,6 +100,7 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   MEMBER_JOINED: "Member joined",
   TASK_DUE_SOON: "Task due",
   TASK_OVERDUE: "Task overdue",
+  RECURRING_EXPENSE_ADDED: "Recurring expense",
   GENERIC: "Update",
 };
 

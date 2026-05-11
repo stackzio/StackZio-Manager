@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Repeat, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,6 +298,34 @@ export function ExpenseForm({ open, onOpenChange, categories, initial }: Props) 
               size="md"
             />
           </div>
+
+          {/* Recurring discovery hint — only shown on create, not edit. */}
+          {mode === "create" ? (
+            <a
+              href="/expenses/recurring"
+              className="group flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+            >
+              <span className="rounded-full bg-brand-gradient p-1.5 text-white">
+                <Repeat className="size-3.5" />
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Does this happen every month or year?
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Set up a recurring rule — domain renewals, Meta budgets,
+                  Claude subscription — and we&apos;ll record it for you each
+                  cycle.
+                </p>
+              </div>
+              <span
+                aria-hidden
+                className="self-center text-xs font-medium text-primary transition-transform group-hover:translate-x-0.5"
+              >
+                →
+              </span>
+            </a>
+          ) : null}
 
           <DialogFooter className="gap-2">
             {mode === "edit" ? (

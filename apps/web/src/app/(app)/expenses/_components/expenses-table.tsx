@@ -7,7 +7,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Plus, Receipt } from "lucide-react";
+import { Plus, Receipt, Repeat } from "lucide-react";
 import { formatDate } from "@stackzio/lib/date";
 import { formatMoney } from "@stackzio/lib/money";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ export interface ExpenseRow {
   reference: string | null;
   note: string | null;
   receiptUrl: string | null;
+  ruleId: string | null;
 }
 
 const METHOD_LABEL: Record<ExpenseRow["method"], string> = {
@@ -86,9 +87,19 @@ export function ExpensesTable({ rows, categories, currency, isFiltered }: Props)
         id: "vendor",
         header: "Vendor",
         cell: ({ row }) => (
-          <span className="block max-w-[200px] truncate text-sm">
-            {row.original.vendor ?? "—"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="block max-w-[200px] truncate text-sm">
+              {row.original.vendor ?? "—"}
+            </span>
+            {row.original.ruleId ? (
+              <span
+                title="Auto-generated from a recurring rule"
+                className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+              >
+                <Repeat className="size-3" /> Auto
+              </span>
+            ) : null}
+          </div>
         ),
       },
       {

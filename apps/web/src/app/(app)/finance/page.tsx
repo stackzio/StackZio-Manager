@@ -5,6 +5,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { requirePageOrgFinance } from "@/server/auth/guards";
 import { getProfitAndLoss } from "@/server/finance/queries";
 import { periodRange, type PeriodPreset } from "@/server/finance/period";
+import { catchUpOrgRecurring } from "@/server/finance/recurring/lazy";
 import { PeriodPicker } from "./_components/period-picker";
 import { KPIStrip } from "./_components/kpi-strip";
 import { TopTables } from "./_components/top-tables";
@@ -47,6 +48,8 @@ export default async function FinancePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const ctx = await requirePageOrgFinance();
+  // Lazy catch-up so newly-due rules feed into the P&L on this render.
+  await catchUpOrgRecurring(ctx.org.id);
   const sp = await searchParams;
 
   const rawPreset = typeof sp.preset === "string" ? sp.preset : undefined;
