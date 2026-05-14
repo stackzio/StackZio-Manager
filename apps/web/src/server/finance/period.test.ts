@@ -31,4 +31,40 @@ describe("periodRange", () => {
     expect(from.toISOString()).toBe("2026-05-01T00:00:00.000Z");
     expect(to.toISOString()).toBe("2026-05-31T23:59:59.999Z");
   });
+
+  it("DST spring-forward — March in America/New_York spans the transition", () => {
+    // In 2026, US DST spring-forward is Sunday March 8.
+    // The local "March" in NY is March 1 00:00 EST → March 31 23:59:59 EDT.
+    const now = new Date("2026-03-15T12:00:00Z");
+    const { from, to } = periodRange("this_month", "America/New_York", now);
+    // Mar 1 00:00 EST (UTC-5) = 2026-03-01T05:00:00Z
+    expect(from.toISOString()).toBe("2026-03-01T05:00:00.000Z");
+    // Mar 31 23:59:59.999 EDT (UTC-4) = 2026-04-01T03:59:59.999Z
+    expect(to.toISOString()).toBe("2026-04-01T03:59:59.999Z");
+  });
+
+  it("leap year — Feb in a leap year is 29 days long", () => {
+    const now = new Date("2024-02-15T12:00:00Z");
+    const { from, to } = periodRange("this_month", "UTC", now);
+    expect(from.toISOString()).toBe("2024-02-01T00:00:00.000Z");
+    // Feb 29 23:59:59.999 UTC
+    expect(to.toISOString()).toBe("2024-02-29T23:59:59.999Z");
+  });
+
+  it("year boundary — this_month for December rolls forward to January", () => {
+    const { from, to } = periodRange("this_month", "UTC", new Date("2026-12-15T00:00:00Z"));
+    expect(from.toISOString()).toBe("2026-12-01T00:00:00.000Z");
+    expect(to.toISOString()).toBe("2026-12-31T23:59:59.999Z");
+  });
+
+  it("last_3_months — full 3-month window inclusive of the current month", () => {
+    // March, April, May
+    const { from, to } = periodRange("last_3_months", "UTC", new Date("2026-05-15T00:00:00Z"));
+    expect(from.toISOString()).toBe("2026-03-01T00:00:00.000Z");
+    expect(to.toISOString()).toBe("2026-05-31T23:59:59.999Z");
+  });
+
+  it("custom range without args throws", () => {
+    expect(() => periodRange("custom", "UTC", new Date())).toThrow();
+  });
 });

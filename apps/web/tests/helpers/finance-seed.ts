@@ -138,6 +138,7 @@ export async function cleanupFinanceSeed(seed: FinanceSeed): Promise<void> {
   });
   await prisma.payout.deleteMany({ where: { organizationId: seed.org.id } });
   await prisma.expense.deleteMany({ where: { organizationId: seed.org.id } });
+  await prisma.expenseRule.deleteMany({ where: { organizationId: seed.org.id } });
   // Payments cascade via Project, but delete defensively in case tests
   // wire up additional projects or the cascade graph is missed.
   await prisma.payment.deleteMany({ where: { organizationId: seed.org.id } });

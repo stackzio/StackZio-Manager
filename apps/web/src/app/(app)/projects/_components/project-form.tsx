@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Briefcase,
   CalendarRange,
@@ -137,6 +137,24 @@ function AdminProjectForm({
   const [ownerId, setOwnerId] = useState<string>(initial?.ownerId ?? "");
   const [progressPct, setProgressPct] = useState<number>(Number(initial?.progressPct ?? 0));
   const [name, setName] = useState<string>(initial?.name ?? "");
+  // Remember the last auto-suggested name so we can update it when the user
+  // switches between clients *before* typing — but never overwrite text the
+  // user has actually entered.
+  const lastSuggestionRef = useRef<string>("");
+
+  function pickClient(nextClientId: string) {
+    setClientId(nextClientId);
+    const nextClient = clients.find((c) => c.id === nextClientId);
+    if (!nextClient) return;
+    const suggestion = (nextClient.company ?? "").trim() || nextClient.name;
+    if (!suggestion) return;
+    // Only fill the name if it's empty or still equal to the previous
+    // auto-suggestion (i.e. the user hasn't manually edited it).
+    if (name.trim() === "" || name.trim() === lastSuggestionRef.current) {
+      setName(suggestion);
+      lastSuggestionRef.current = suggestion;
+    }
+  }
   const [currency, setCurrency] = useState<string>((initial?.currency as string) ?? defaultCurrency);
   const [priceTotal, setPriceTotal] = useState<string>(String(initial?.priceTotal ?? ""));
   const isAdmin = true;
@@ -229,7 +247,7 @@ function AdminProjectForm({
       <Section icon={<Layers className="size-4" />} title="Basics" subtitle="Who's it for, what category, and a short description.">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Client" id="clientId" required>
-            <Select value={clientId} onValueChange={setClientId} disabled={!isAdmin && mode === "edit"}>
+            <Select value={clientId} onValueChange={pickClient} disabled={!isAdmin && mode === "edit"}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
