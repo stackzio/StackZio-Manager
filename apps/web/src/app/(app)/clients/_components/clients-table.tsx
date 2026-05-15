@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CalendarClock } from "lucide-react";
+import type { ClientInterest } from "@stackzio/db";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { InterestBadge } from "@/features/clients/components/interest-badge";
+import { formatDate, timeAgo } from "@stackzio/lib/date";
 
 export interface ClientRow {
   id: string;
@@ -14,6 +18,8 @@ export interface ClientRow {
   phone: string | null;
   city: string | null;
   country: string | null;
+  interestStatus: ClientInterest;
+  followUpAt: Date | string | null;
   _count: { projects: number; contacts: number };
 }
 
@@ -54,6 +60,34 @@ const COLUMNS: ColumnDef<ClientRow>[] = [
     cell: ({ row }) => (
       <span className="text-muted-foreground">{row.original.phone ?? "—"}</span>
     ),
+  },
+  {
+    id: "status",
+    header: "Status",
+    cell: ({ row }) => <InterestBadge status={row.original.interestStatus} />,
+  },
+  {
+    id: "followUpAt",
+    header: "Follow-up",
+    meta: { sortable: true },
+    cell: ({ row }) => {
+      const v = row.original.followUpAt;
+      if (!v) return <span className="text-muted-foreground">—</span>;
+      const d = new Date(v);
+      const overdue = d.getTime() < Date.now();
+      return (
+        <span
+          className={
+            overdue
+              ? "inline-flex items-center gap-1 text-destructive"
+              : "inline-flex items-center gap-1 text-muted-foreground"
+          }
+        >
+          <CalendarClock className="size-3" />
+          {formatDate(d, "dd MMM")} · {overdue ? `${timeAgo(d)} late` : timeAgo(d)}
+        </span>
+      );
+    },
   },
   {
     id: "location",
