@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ClientInterest, ClientNoteKind } from "@stackzio/db";
 
 const optionalString = (max: number) =>
   z
@@ -47,7 +48,39 @@ export const upsertClientSchema = z.object({
   country: optionalString(80),
   postalCode: optionalString(20),
   notes: optionalString(2000),
+  interestStatus: z.nativeEnum(ClientInterest).default(ClientInterest.NEW),
+  followUpAt: z.coerce.date().nullable().optional(),
+  followUpReason: optionalString(200),
   contacts: z.array(contactSchema).max(20).default([]),
 });
 
 export type UpsertClientInput = z.infer<typeof upsertClientSchema>;
+
+export const addClientNoteSchema = z.object({
+  clientId: z.string().min(1),
+  body: z.string().trim().min(1, "Note required").max(4000),
+  kind: z.nativeEnum(ClientNoteKind).default(ClientNoteKind.NOTE),
+});
+
+export type AddClientNoteInput = z.infer<typeof addClientNoteSchema>;
+
+export const updateClientNoteSchema = z.object({
+  id: z.string().min(1),
+  body: z.string().trim().min(1).max(4000),
+  kind: z.nativeEnum(ClientNoteKind),
+});
+
+export type UpdateClientNoteInput = z.infer<typeof updateClientNoteSchema>;
+
+export const deleteClientNoteSchema = z.object({ id: z.string().min(1) });
+
+export const updateClientInterestSchema = z.object({
+  clientId: z.string().min(1),
+  interestStatus: z.nativeEnum(ClientInterest),
+});
+
+export const updateClientFollowUpSchema = z.object({
+  clientId: z.string().min(1),
+  followUpAt: z.coerce.date().nullable(),
+  followUpReason: optionalString(200),
+});
