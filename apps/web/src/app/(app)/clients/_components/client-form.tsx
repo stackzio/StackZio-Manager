@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClientAction, updateClientAction } from "@/server/clients/actions";
+import { ClientInterest } from "@stackzio/db";
 import type { UpsertClientInput } from "@/server/clients/schemas";
 
 interface Contact {
@@ -58,6 +59,9 @@ export function ClientForm({ mode, clientId, initial }: Props) {
       country: String(fd.get("country") ?? "").trim(),
       postalCode: String(fd.get("postalCode") ?? "").trim(),
       notes: String(fd.get("notes") ?? "").trim(),
+      interestStatus: (initial?.interestStatus as ClientInterest | undefined) ?? ClientInterest.NEW,
+      followUpAt: initial?.followUpAt ?? null,
+      followUpReason: initial?.followUpReason,
       contacts: contacts
         .filter((c) => c.name.trim())
         .map((c) => ({

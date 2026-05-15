@@ -36,6 +36,9 @@ export async function createClientAction(input: UpsertClientInput): Promise<Clie
         country: data.country,
         postalCode: data.postalCode,
         notes: data.notes,
+        interestStatus: data.interestStatus,
+        followUpAt: data.followUpAt ?? null,
+        followUpReason: data.followUpReason,
         contacts: data.contacts.length
           ? { create: data.contacts.map((c) => ({ name: c.name, role: c.role, email: c.email, phone: c.phone })) }
           : undefined,
@@ -96,6 +99,9 @@ export async function updateClientAction(
         country: data.country,
         postalCode: data.postalCode,
         notes: data.notes,
+        interestStatus: data.interestStatus,
+        followUpAt: data.followUpAt ?? null,
+        followUpReason: data.followUpReason,
       },
     });
 
