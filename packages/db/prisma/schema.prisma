@@ -39,6 +39,7 @@ model User {
   meetingAttended MeetingAttendee[]
   activityLogs    ActivityLog[]         @relation("ActivityActor")
   clientsCreated  Client[]              @relation("ClientCreator")
+  clientNotes     ClientNote[]          @relation("ClientNoteAuthor")
   orgsCreated     Organization[]        @relation("OrgCreator")
   notifications   Notification[]
   updatesPosted   ProjectUpdate[]       @relation("UpdateAuthor")
@@ -178,6 +179,24 @@ model OrganizationInvite {
 // Clients
 // =============================================================
 
+enum ClientInterest {
+  NEW
+  INTERESTED
+  FOLLOW_UP
+  NEGOTIATING
+  NOT_INTERESTED
+  CONVERTED
+  LOST
+}
+
+enum ClientNoteKind {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  WHATSAPP
+}
+
 model Client {
   id             String   @id @default(cuid())
   organizationId String
@@ -192,19 +211,25 @@ model Client {
   state          String?
   country        String?
   postalCode     String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  createdById    String
+  notes           String?
+  interestStatus  ClientInterest @default(NEW)
+  followUpAt      DateTime?
+  followUpReason  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String
 
-  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User            @relation("ClientCreator", fields: [createdById], references: [id])
-  contacts     ClientContact[]
-  projects     Project[]
-  meetings     Meeting[]
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User            @relation("ClientCreator", fields: [createdById], references: [id])
+  contacts        ClientContact[]
+  projects        Project[]
+  meetings        Meeting[]
+  discussionNotes ClientNote[]
 
   @@index([organizationId])
   @@index([organizationId, name])
+  @@index([organizationId, interestStatus])
+  @@index([organizationId, followUpAt])
 }
 
 model ClientContact {
@@ -218,6 +243,21 @@ model ClientContact {
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
+}
+
+model ClientNote {
+  id        String         @id @default(cuid())
+  clientId  String
+  authorId  String
+  body      String
+  kind      ClientNoteKind @default(NOTE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author User   @relation("ClientNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([clientId, createdAt])
 }
 
 // =============================================================
