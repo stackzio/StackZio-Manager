@@ -9,8 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClientAction, updateClientAction } from "@/server/clients/actions";
 import { ClientInterest } from "@stackzio/db";
+import { INTEREST_LABELS, INTEREST_ORDER } from "@/features/clients/constants";
 import type { UpsertClientInput } from "@/server/clients/schemas";
 
 interface Contact {
@@ -31,6 +39,9 @@ export function ClientForm({ mode, clientId, initial }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>(initial?.contacts ?? []);
+  const [interestStatus, setInterestStatus] = useState<ClientInterest>(
+    initial?.interestStatus ?? ClientInterest.NEW,
+  );
 
   function addContact() {
     setContacts((prev) => [...prev, { name: "" }]);
@@ -59,9 +70,9 @@ export function ClientForm({ mode, clientId, initial }: Props) {
       country: String(fd.get("country") ?? "").trim(),
       postalCode: String(fd.get("postalCode") ?? "").trim(),
       notes: String(fd.get("notes") ?? "").trim(),
-      interestStatus: (initial?.interestStatus as ClientInterest | undefined) ?? ClientInterest.NEW,
-      followUpAt: initial?.followUpAt ?? null,
-      followUpReason: initial?.followUpReason,
+      interestStatus,
+      followUpAt: fd.get("followUpAt") ? new Date(String(fd.get("followUpAt"))) : null,
+      followUpReason: String(fd.get("followUpReason") ?? "").trim() || undefined,
       contacts: contacts
         .filter((c) => c.name.trim())
         .map((c) => ({
@@ -185,13 +196,56 @@ export function ClientForm({ mode, clientId, initial }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notes</CardTitle>
+          <CardTitle>Sales</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-5 sm:grid-cols-2">
+          <Field label="Interest" id="interestStatus">
+            <Select value={interestStatus} onValueChange={(v) => setInterestStatus(v as ClientInterest)}>
+              <SelectTrigger id="interestStatus">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTEREST_ORDER.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {INTEREST_LABELS[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Next follow-up" id="followUpAt">
+            <Input
+              id="followUpAt"
+              name="followUpAt"
+              type="datetime-local"
+              defaultValue={
+                initial?.followUpAt
+                  ? new Date(initial.followUpAt as unknown as string).toISOString().slice(0, 16)
+                  : ""
+              }
+            />
+          </Field>
+          <Field label="Follow-up reason" id="followUpReason" className="sm:col-span-2">
+            <Input
+              id="followUpReason"
+              name="followUpReason"
+              defaultValue={(initial?.followUpReason as string | undefined) ?? ""}
+              placeholder="e.g. send proposal, check budget"
+              maxLength={200}
+            />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Background notes</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
             name="notes"
             defaultValue={initial?.notes ?? ""}
-            placeholder="Anything worth remembering — preferences, history, gotchas."
+            placeholder="Static info worth remembering — preferences, history, gotchas. For ongoing conversation, use the Discussion section on the client page."
             maxLength={2000}
             className="min-h-[120px]"
           />
