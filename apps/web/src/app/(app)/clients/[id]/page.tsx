@@ -24,12 +24,16 @@ import { formatMoney } from "@stackzio/lib/money";
 import { getClient } from "@/server/clients/queries";
 import { requireOrg } from "@/server/auth/guards";
 import { DeleteClientButton } from "../_components/delete-client-button";
+import { InterestBadge } from "@/features/clients/components/interest-badge";
+import { InterestSelect } from "@/features/clients/components/interest-select";
+import { FollowUpCard } from "@/features/clients/components/follow-up-card";
+import { DiscussionTimeline } from "@/features/clients/components/discussion-timeline";
 
 export const metadata: Metadata = { title: "Client" };
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { org, role } = await requireOrg();
+  const { org, role, user } = await requireOrg();
   const client = await getClient(id);
   if (!client) notFound();
 
@@ -91,6 +95,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
 
+          <FollowUpCard
+            clientId={client.id}
+            followUpAt={client.followUpAt ? client.followUpAt.toISOString() : null}
+            followUpReason={client.followUpReason}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -117,6 +127,32 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Status
+                </span>
+                <InterestBadge status={client.interestStatus} />
+              </div>
+              <InterestSelect clientId={client.id} value={client.interestStatus} />
+            </CardHeader>
+          </Card>
+
+          <DiscussionTimeline
+            clientId={client.id}
+            notes={client.discussionNotes.map((n) => ({
+              id: n.id,
+              body: n.body,
+              kind: n.kind,
+              createdAt: n.createdAt.toISOString(),
+              updatedAt: n.updatedAt.toISOString(),
+              author: n.author,
+            }))}
+            currentUserId={user.id}
+            isAdmin={isAdmin}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -184,7 +220,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <StickyNote className="size-4 text-primary" /> Notes
+                  <StickyNote className="size-4 text-primary" /> Background
                 </CardTitle>
               </CardHeader>
               <CardContent>
