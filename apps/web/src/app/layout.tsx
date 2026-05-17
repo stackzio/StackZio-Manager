@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
-import { Suspense } from "react";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { RouteProgress } from "@/components/app-shell/route-progress";
@@ -37,9 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider>
           <QueryProvider>
-            <Suspense fallback={null}>
-              <RouteProgress />
-            </Suspense>
+            <RouteProgress />
             {children}
             <Toaster richColors closeButton position="top-right" />
           </QueryProvider>

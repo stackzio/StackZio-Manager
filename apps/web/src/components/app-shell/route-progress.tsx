@@ -1,18 +1,20 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 /**
  * A thin top-of-page gradient progress bar that fires on every link click and
- * settles when the new pathname or query string lands. Server transitions in
- * Next.js block synchronous URL updates without `loading.tsx`, so this gives
- * an instant visual cue that something is happening.
+ * settles when the new pathname lands. Server transitions in Next.js block
+ * synchronous URL updates without `loading.tsx`, so this gives an instant
+ * visual cue that something is happening.
+ *
+ * Intentionally avoids useSearchParams — using it forces the closest Suspense
+ * boundary to render its fallback during the prerender pass, which perturbs
+ * useId paths for sibling subtrees and breaks Radix hydration.
  */
 export function RouteProgress() {
   const pathname = usePathname();
-  const search = useSearchParams();
-  const key = `${pathname}?${search.toString()}`;
   const firstRender = useRef(true);
   const [progress, setProgress] = useState(0);
 
@@ -38,7 +40,7 @@ export function RouteProgress() {
     return () => document.removeEventListener("click", onClick);
   }, []);
 
-  // Whenever the URL key actually changes, ramp up; settle to 100 then fade.
+  // Whenever the pathname changes, ramp up; settle to 100 then fade.
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
@@ -51,7 +53,7 @@ export function RouteProgress() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [key]);
+  }, [pathname]);
 
   // Slow creep while pending so the bar never just freezes.
   useEffect(() => {
